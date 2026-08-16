@@ -5,18 +5,17 @@ import type { ServiceConfig } from '../src/config/load.js'
 import type { Logger } from '../src/shared/logger.js'
 
 const currentToken = 'current-token-that-is-at-least-32-characters'
-const previousToken = 'previous-token-that-is-at-least-32-chars'
 
 const config: ServiceConfig = {
   hostname: '127.0.0.1',
   port: 8080,
   serviceToken: currentToken,
-  previousToken,
   readHeaderTimeoutMs: 5_000,
   requestTimeoutMs: 20_000,
   shutdownTimeoutMs: 10_000,
   maxRequestBodyBytes: 1024 * 1024,
-  ipDatabaseDirectory: 'data/ip',
+  dataDirectory: 'data',
+  assetsDirectory: 'data/assets',
   configurationFile: 'data/runtime/test.enc',
   serviceId: 'openapi-service-test',
   serviceName: 'OpenAPI Service Test',
@@ -51,56 +50,54 @@ describe('system routes', () => {
     )
   })
 
-  it.each([currentToken, previousToken])(
-    'accepts an active Service Token',
-    async (token) => {
-      const response = await createTestApp().request('/openapi.json', {
-        headers: {
-          authorization: 'Service ' + token
-        }
-      })
-      const document = (await response.json()) as {
-        openapi: string
-        paths: Record<
-          string,
-          {
-            get?: {
-              'x-openapi-platform'?: { support?: boolean }
-              responses?: Record<
-                string,
-                { headers?: Record<string, unknown> }
-              >
-            }
-          }
-        >
+  it('accepts the configured Service Token', async () => {
+    const token = currentToken
+    const response = await createTestApp().request('/openapi.json', {
+      headers: {
+        authorization: 'Service ' + token
       }
-
-      expect(response.status).toBe(200)
-      expect(document.openapi).toBe('3.1.0')
-      expect(document.paths).toHaveProperty('/healthz')
-      expect(document.paths).toHaveProperty('/openapi.json')
-      expect(
-        document.paths['/v1/player/assets/{asset}']?.get?.['x-openapi-platform']
-      ).toEqual({ support: true })
-      expect(
-        document.paths['/v1/player']?.get?.['x-openapi-platform']
-      ).toBeUndefined()
-      expect(
-        document.paths['/openapi.json']?.get?.responses?.['200']
-          ?.headers
-      ).toHaveProperty('etag')
-      expect(
-        document.paths['/openapi.json']?.get?.responses?.['304']
-          ?.headers
-      ).toHaveProperty('x-openapi-sha256')
-      expect(response.headers.get('x-openapi-sha256')).toMatch(
-        /^[0-9a-f]{64}$/
-      )
-      expect(response.headers.get('etag')).toBe(
-        `"sha256-${response.headers.get('x-openapi-sha256')}"`
-      )
+    })
+    const document = (await response.json()) as {
+      openapi: string
+      paths: Record<
+        string,
+        {
+          get?: {
+            'x-openapi-platform'?: { support?: boolean }
+            responses?: Record<
+              string,
+              { headers?: Record<string, unknown> }
+            >
+          }
+        }
+      >
     }
-  )
+
+    expect(response.status).toBe(200)
+    expect(document.openapi).toBe('3.1.0')
+    expect(document.paths).toHaveProperty('/healthz')
+    expect(document.paths).toHaveProperty('/openapi.json')
+    expect(
+      document.paths['/v1/player/assets/{asset}']?.get?.['x-openapi-platform']
+    ).toEqual({ support: true })
+    expect(
+      document.paths['/v1/player']?.get?.['x-openapi-platform']
+    ).toBeUndefined()
+    expect(
+      document.paths['/openapi.json']?.get?.responses?.['200']
+        ?.headers
+    ).toHaveProperty('etag')
+    expect(
+      document.paths['/openapi.json']?.get?.responses?.['304']
+        ?.headers
+    ).toHaveProperty('x-openapi-sha256')
+    expect(response.headers.get('x-openapi-sha256')).toMatch(
+      /^[0-9a-f]{64}$/
+    )
+    expect(response.headers.get('etag')).toBe(
+      `"sha256-${response.headers.get('x-openapi-sha256')}"`
+    )
+  })
 
   it('exposes the same contract fingerprint in service discovery', async () => {
     const app = createTestApp()

@@ -50,6 +50,10 @@ assets/
 ├── player/DPlayer.min.js
 └── yiyan/*.json
 
+data/                              # 本地忽略，不进入镜像源码层
+├── assets/<module-id>/            # 运维方外挂只读数据
+└── runtime/                       # Service 可写持久化状态
+
 test/
 ├── public-routes.test.ts
 ├── ip-database.test.ts
@@ -67,6 +71,7 @@ test/
 - `configuration/` 实现与业务无关的 Schema、快照、Revision、脱敏和持久化协议。
 - `contracts/` 是 HTTP/OpenAPI 契约，`http/` 只处理传输层、中间件与错误映射。
 - `modules/<name>/` 纵向拥有某个业务接口的 Route、业务逻辑、资产访问和可选配置声明。
+- 仓库 `assets/` 只放允许随源码分发的内置资产；`SERVICE_DATA_DIR/assets/<module-id>` 只放运维外挂且不能提交 Git 的数据。
 - `shared/` 只收纳至少已有两个生产调用方的无业务语义工具；没有第二个调用方时留在模块内。
 - 禁止新增 Repository/Provider/Adapter 基类、运行时插件注册表或依赖注入容器；只有出现真实替换需求时才引入接口。
 
@@ -103,7 +108,7 @@ Operation 应共享该 Tag。只为公开 Operation 提供资产或内部依赖�
 | --- | --- | --- |
 | Platform 的公开路径、鉴权、积分、限流、启停和删除 | 否 | 发布 Routing Revision |
 | 已声明的模块开关、Cookie、数据库密钥和算法列表 | 否 | Platform 保存并热更新 Service |
-| Service Token、挂载目录、网络和进程配置 | 否 | 滚动重启 Service |
+| Service Token、统一数据根目录、网络和进程配置 | 否 | 滚动重启 Service |
 | Endpoint、业务逻辑、OpenAPI、配置 Schema 和依赖 | 是，仅 Service | 构建并替换 Service 镜像 |
 
-生产服务器不执行 `pnpm install`、TypeScript Build 或 Nuxt Build。
+官方容器部署不在生产服务器执行 `pnpm install`、TypeScript Build 或 Nuxt Build。非容器 Release 包只需安装锁定的生产依赖，不再编译源码。

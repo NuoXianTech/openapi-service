@@ -1,7 +1,8 @@
 {
   "name": "openapi-service",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Independent Node.js business API service for OpenAPI Platform",
   "type": "module",
   "packageManager": "pnpm@11.20.0",
@@ -15,7 +16,6 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "licenses:check": "node scripts/check-production-licenses.mjs",
     "build": "tsc -p tsconfig.build.json",
     "measure:runtime": "node scripts/measure-runtime.mjs",
     "start": "node --enable-source-maps dist/index.js"

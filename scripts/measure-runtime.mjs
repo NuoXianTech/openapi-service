@@ -24,7 +24,6 @@ const child = spawn(
       ...process.env,
       LISTEN_ADDR: `127.0.0.1:${port}`,
       API_SERVICE_TOKEN: token,
-      SHUTDOWN_TIMEOUT: '2s',
       SERVICE_VERSION: 'runtime-measurement',
       SERVICE_COMMIT: 'local'
     },

@@ -61,12 +61,9 @@ $env:API_SERVICE_TOKEN = 'replace-with-at-least-32-random-characters'
 pnpm dev
 ```
 
-生产依赖许可证门禁允许 0BSD、Apache-2.0、BSD-2-Clause、BSD-3-Clause、ISC 与 MIT。
-
 质量门禁：
 
 ```bash
-pnpm licenses:check
 pnpm check:unused
 pnpm typecheck
 pnpm test
@@ -74,13 +71,13 @@ pnpm build
 pnpm measure:runtime
 ```
 
-`pnpm build` 只执行服务端 TypeScript 编译，不运行 Nuxt、Vue 或 Vite。生产服务器只拉取并运行预构建镜像。
+`pnpm build` 只执行服务端 TypeScript 编译，不运行 Nuxt、Vue 或 Vite。生产服务器优先拉取预构建镜像；非容器部署使用 GitHub Release 中已编译的 `dist/`，不在服务器重新构建源码。
 
 ## 发布边界
 
 - 修改 Platform Route、鉴权、积分或限流：只发布 Routing Revision，不构建 Service。
 - 修改音乐平台开关/Cookie、IP 数据库密钥、Crypto 算法等已声明业务配置：在 Platform 保存并热更新 Service，不重启进程。
-- 修改 Service Token、数据目录、网络或进程配置：滚动重启 Service，不重建 Platform。
+- 修改 Service Token、统一数据根目录、网络或进程配置：滚动重启 Service，不重建 Platform。
 - 修改接口实现、OpenAPI、配置 Schema 或依赖：只构建和替换 Service，不停止 Platform。
 
 文档：
@@ -88,7 +85,32 @@ pnpm measure:runtime
 - [架构与代码边界](docs/architecture.md)
 - [接口开发流程](docs/development.md)
 - [业务配置协议与第三方扩展](docs/configuration.md)
-- [运行、部署与回滚](docs/operations.md)
+- [构建与生产部署](docs/deployment.md)
+- [运行维护](docs/operations.md)
+- [版本发布流程](docs/release.md)
 - [一言接口](docs/apis/yiyan.md)
 - [播放器接口](docs/apis/player.md)
 - [IP 接口](docs/apis/ip.md)
+
+## 致谢
+
+部分内置公开 API 基于或参考了以下项目：
+
+- [emoji-aes](https://github.com/a8763506128977812212307169331690/emoji-aes)
+- [taiji-encode](https://github.com/Cat7373/taiji-encode)
+- [beast_sdk](https://github.com/SycAlright/beast_sdk)
+- [Core-Values-Encoder](https://github.com/wTool/Core-Values-Encoder)
+- [talk-with-buddha](https://github.com/takuron/talk-with-buddha)
+- [sentences-bundle](https://github.com/hitokoto-osc/sentences-bundle)
+- [doubao-nomark](https://github.com/ihmily/doubao-nomark)
+- [60s](https://github.com/vikiboss/60s)
+- [Meting](https://github.com/metowolf/Meting)
+- [Meting-API](https://github.com/metowolf/Meting-API)
+- [short_videos](https://github.com/jiuhunwl/short_videos)
+- [60s-static-host](https://github.com/vikiboss/60s-static-host)
+- [LanzouAPI](https://github.com/hanximeng/LanzouAPI)
+- [v50](https://github.com/vikiboss/v50)
+
+## 许可证
+
+[MIT](LICENSE) © NuoXianTech

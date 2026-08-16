@@ -18,10 +18,7 @@ export function createServiceTokenMiddleware(config: ServiceConfig) {
       ? authorization.slice('Service '.length).trim()
       : ''
 
-    if (
-      !constantTimeEqual(token, config.serviceToken) &&
-      !(config.previousToken && constantTimeEqual(token, config.previousToken))
-    ) {
+    if (!constantTimeEqual(token, config.serviceToken)) {
       c.header('www-authenticate', 'Service realm="openapi-service"')
       return respondWithFailure(
         c,

@@ -23,10 +23,7 @@ export function createPersistentConfigurationManager(
     store: new EncryptedConfigurationFileStore({
       filePath: config.configurationFile,
       serviceId: config.serviceId,
-      currentToken: config.serviceToken,
-      ...(config.previousToken
-        ? { previousToken: config.previousToken }
-        : {})
+      token: config.serviceToken
     })
   })
 }

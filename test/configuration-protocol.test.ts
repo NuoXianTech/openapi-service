@@ -12,10 +12,8 @@ import { ConfigurationDefinitionSchema } from '../src/contracts/configuration.js
 import type { Logger } from '../src/shared/logger.js'
 
 const serviceToken = 'configuration-token-that-is-at-least-32-characters'
-const previousServiceToken =
-  'previous-configuration-token-that-is-at-least-32-characters'
-const rotatedServiceToken =
-  'rotated-configuration-token-that-is-at-least-32-characters'
+const differentServiceToken =
+  'different-configuration-token-that-is-at-least-32-characters'
 const config: ServiceConfig = {
   hostname: '127.0.0.1',
   port: 8080,
@@ -24,7 +22,8 @@ const config: ServiceConfig = {
   requestTimeoutMs: 20_000,
   shutdownTimeoutMs: 10_000,
   maxRequestBodyBytes: 1024 * 1024,
-  ipDatabaseDirectory: 'data/ip',
+  dataDirectory: 'data',
+  assetsDirectory: 'data/assets',
   configurationFile: 'data/runtime/test.enc',
   serviceId: 'configuration-test-service',
   serviceName: 'Configuration Test Service',
@@ -164,7 +163,7 @@ describe('service configuration protocol', () => {
       store: new EncryptedConfigurationFileStore({
         filePath,
         serviceId: config.serviceId,
-        currentToken: serviceToken
+        token: serviceToken
       })
     })
     const first = createManager()
@@ -186,8 +185,8 @@ describe('service configuration protocol', () => {
     })
   })
 
-  it('rewrites a snapshot with the current token after rotation', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'openapi-config-rotation-'))
+  it('rejects a snapshot encrypted with another Service Token', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'openapi-config-token-'))
     tempDirectories.push(directory)
     const filePath = join(directory, 'service-configuration.enc')
     const snapshot = {
@@ -203,26 +202,13 @@ describe('service configuration protocol', () => {
     await new EncryptedConfigurationFileStore({
       filePath,
       serviceId: config.serviceId,
-      currentToken: previousServiceToken
+      token: serviceToken
     }).save(snapshot)
 
     await expect(new EncryptedConfigurationFileStore({
       filePath,
       serviceId: config.serviceId,
-      currentToken: rotatedServiceToken,
-      previousToken: previousServiceToken
-    }).load()).resolves.toEqual(snapshot)
-
-    await expect(new EncryptedConfigurationFileStore({
-      filePath,
-      serviceId: config.serviceId,
-      currentToken: rotatedServiceToken
-    }).load()).resolves.toEqual(snapshot)
-
-    await expect(new EncryptedConfigurationFileStore({
-      filePath,
-      serviceId: config.serviceId,
-      currentToken: previousServiceToken
+      token: differentServiceToken
     }).load()).rejects.toThrow('configuration file could not be decrypted')
   })
 })

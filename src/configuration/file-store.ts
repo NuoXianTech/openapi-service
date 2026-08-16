@@ -49,23 +49,19 @@ const snapshotSchema = z.object({
 export interface EncryptedConfigurationFileStoreOptions {
   filePath: string
   serviceId: string
-  currentToken: string
-  previousToken?: string
+  token: string
 }
 
 export class EncryptedConfigurationFileStore
 implements ConfigurationSnapshotStore {
   readonly #filePath: string
   readonly #serviceId: string
-  readonly #tokens: string[]
+  readonly #token: string
 
   constructor(options: EncryptedConfigurationFileStoreOptions) {
     this.#filePath = options.filePath
     this.#serviceId = options.serviceId
-    this.#tokens = [
-      options.currentToken,
-      ...(options.previousToken ? [options.previousToken] : [])
-    ]
+    this.#token = options.token
   }
 
   async load(): Promise<PersistedConfigurationSnapshot | null> {
@@ -82,29 +78,21 @@ implements ConfigurationSnapshotStore {
       throw new Error('configuration file service identity mismatch')
     }
 
-    let lastError: unknown
-    for (const [index, token] of this.#tokens.entries()) {
-      let snapshot: PersistedConfigurationSnapshot
-      try {
-        const plaintext = decryptPayload(envelope, token)
-        snapshot = snapshotSchema.parse(JSON.parse(plaintext))
-      } catch (error) {
-        lastError = error
-        continue
-      }
-      if (index > 0) await this.save(snapshot)
-      return snapshot
+    try {
+      const plaintext = decryptPayload(envelope, this.#token)
+      return snapshotSchema.parse(JSON.parse(plaintext))
+    } catch (error) {
+      throw new Error('configuration file could not be decrypted', {
+        cause: error
+      })
     }
-    throw new Error('configuration file could not be decrypted', {
-      cause: lastError
-    })
   }
 
   async save(snapshot: PersistedConfigurationSnapshot): Promise<void> {
     const envelope = encryptPayload(
       JSON.stringify(snapshot),
       this.#serviceId,
-      this.#tokens[0]!
+      this.#token
     )
     const directory = dirname(this.#filePath)
     await mkdir(directory, { recursive: true, mode: 0o700 })

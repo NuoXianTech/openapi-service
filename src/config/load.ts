@@ -1,15 +1,23 @@
+import { join, resolve } from 'node:path'
 import { environmentSchema } from './schema.js'
+
+const SERVICE_ID = 'openapi-service'
+const SERVICE_NAME = 'OpenAPI Service'
+const READ_HEADER_TIMEOUT_MS = 5_000
+const REQUEST_TIMEOUT_MS = 20_000
+const SHUTDOWN_TIMEOUT_MS = 10_000
+const MAX_REQUEST_BODY_BYTES = 1024 * 1024
 
 export interface ServiceConfig {
   hostname: string
   port: number
   serviceToken: string
-  previousToken?: string
   readHeaderTimeoutMs: number
   requestTimeoutMs: number
   shutdownTimeoutMs: number
   maxRequestBodyBytes: number
-  ipDatabaseDirectory: string
+  dataDirectory: string
+  assetsDirectory: string
   configurationFile: string
   serviceId: string
   serviceName: string
@@ -22,31 +30,26 @@ export function loadConfig(
 ): ServiceConfig {
   const parsed = environmentSchema.parse(environment)
   const listenAddress = parseListenAddress(parsed.LISTEN_ADDR)
+  const dataDirectory = resolve(parsed.SERVICE_DATA_DIR)
 
   return {
     ...listenAddress,
     serviceToken: parsed.API_SERVICE_TOKEN,
-    ...(parsed.API_SERVICE_PREVIOUS_TOKEN
-      ? { previousToken: parsed.API_SERVICE_PREVIOUS_TOKEN }
-      : {}),
-    readHeaderTimeoutMs: parseDuration(
-      'READ_HEADER_TIMEOUT',
-      parsed.READ_HEADER_TIMEOUT
+    readHeaderTimeoutMs: READ_HEADER_TIMEOUT_MS,
+    requestTimeoutMs: REQUEST_TIMEOUT_MS,
+    shutdownTimeoutMs: SHUTDOWN_TIMEOUT_MS,
+    maxRequestBodyBytes: MAX_REQUEST_BODY_BYTES,
+    dataDirectory,
+    assetsDirectory: join(dataDirectory, 'assets'),
+    configurationFile: join(
+      dataDirectory,
+      'runtime',
+      'service-configuration.enc'
     ),
-    requestTimeoutMs: parseDuration(
-      'REQUEST_TIMEOUT',
-      parsed.REQUEST_TIMEOUT
-    ),
-    shutdownTimeoutMs: parseDuration(
-      'SHUTDOWN_TIMEOUT',
-      parsed.SHUTDOWN_TIMEOUT
-    ),
-    maxRequestBodyBytes: parsed.MAX_REQUEST_BODY_BYTES,
-    ipDatabaseDirectory: parsed.IP_DATABASE_DIRECTORY,
-    configurationFile: parsed.SERVICE_CONFIG_FILE,
-    serviceId: parsed.SERVICE_ID,
-    serviceName: parsed.SERVICE_NAME,
-    version: parsed.SERVICE_VERSION,
+    serviceId: SERVICE_ID,
+    serviceName: SERVICE_NAME,
+    version: parsed.SERVICE_VERSION
+      ?? (environment.npm_package_version?.trim() || 'dev'),
     commit: parsed.SERVICE_COMMIT
   }
 }
@@ -84,23 +87,4 @@ function parsePort(value: string): number {
     throw new Error('LISTEN_ADDR port must be an integer from 1 to 65535')
   }
   return port
-}
-
-function parseDuration(name: string, value: string): number {
-  const match = /^(\d+)(ms|s|m)$/.exec(value)
-  if (!match) {
-    throw new Error(
-      name + ' must be a positive duration such as 500ms, 5s, or 1m'
-    )
-  }
-
-  const amount = Number(match[1])
-  const unit = match[2]
-  const multiplier = unit === 'm' ? 60_000 : unit === 's' ? 1_000 : 1
-  const milliseconds = amount * multiplier
-
-  if (!Number.isSafeInteger(milliseconds) || milliseconds <= 0) {
-    throw new Error(name + ' must be a positive safe duration')
-  }
-  return milliseconds
 }

@@ -19,6 +19,7 @@ ARG SERVICE_VERSION=dev
 ARG SERVICE_COMMIT=unknown
 
 ENV NODE_ENV=production \
+  SERVICE_DATA_DIR=/app/data \
   SERVICE_VERSION=$SERVICE_VERSION \
   SERVICE_COMMIT=$SERVICE_COMMIT
 WORKDIR /app
@@ -27,6 +28,9 @@ COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/assets ./assets
+
+RUN mkdir -p /app/data/assets /app/data/runtime \
+  && chown -R node:node /app/data
 
 USER node
 EXPOSE 8080

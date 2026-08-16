@@ -1,4 +1,5 @@
 import type { OpenAPIHono } from '@hono/zod-openapi'
+import { join } from 'node:path'
 import type { ServiceConfig } from '../config/load.js'
 import type { ServiceConfigurationManager } from '../configuration/manager.js'
 import type { ServiceConfigurationDefinition } from '../configuration/types.js'
@@ -37,7 +38,7 @@ export function registerServiceModules(
     }
   })
   registerIpRoutes(app, {
-    directory: config.ipDatabaseDirectory,
+    directory: join(config.assetsDirectory, 'ip'),
     configuration
   })
 }

@@ -1,0 +1,28 @@
+services:
+  openapi-service:
+    image: ghcr.io/nuoxiantech/openapi-service:latest
+    restart: unless-stopped
+    environment:
+      API_SERVICE_TOKEN: "${API_SERVICE_TOKEN:?API_SERVICE_TOKEN must be set}"
+    volumes:
+      - "./data/assets:/app/data/assets:ro"
+      - service_runtime:/app/data/runtime
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/healthz').then(response => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - openapi
+
+volumes:
+  service_runtime:
+    name: openapi-service-runtime
+
+networks:
+  openapi:
+    external: true
+    name: openapi-network

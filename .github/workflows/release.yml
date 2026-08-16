@@ -1,0 +1,144 @@
+name: Create GitHub release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: service-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Verify and release ${{ github.ref_name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate version tag
+        id: version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          package_version="$(node -p "require('./package.json').version")"
+          if [[ "$RELEASE_TAG" != "v${package_version}" ]]; then
+            echo "Release tag $RELEASE_TAG does not match package.json version $package_version." >&2
+            exit 1
+          fi
+
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "Release tag $RELEASE_TAG does not point to a commit on main." >&2
+            exit 1
+          fi
+
+          echo "number=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 11.20.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check unused files and dependencies
+        run: pnpm check:unused
+
+      - name: Type-check
+        run: pnpm typecheck
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Build production server
+        run: pnpm build
+
+      - name: Check runtime resource budget
+        run: pnpm measure:runtime
+
+      - name: Package prebuilt server
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.number }}
+        run: |
+          package_name="openapi-service-${VERSION}"
+          package_dir="${RUNNER_TEMP}/${package_name}"
+          mkdir -p "$package_dir" release
+          cp -R dist assets docs "$package_dir/"
+          cp package.json pnpm-lock.yaml pnpm-workspace.yaml \
+            docker-compose.yml .env.example LICENSE README.md "$package_dir/"
+          sed -i \
+            "s#openapi-service:latest#openapi-service:${VERSION}#" \
+            "$package_dir/docker-compose.yml"
+          tar -czf "release/${package_name}.tar.gz" \
+            -C "$RUNNER_TEMP" "$package_name"
+          (
+            cd release
+            sha256sum "${package_name}.tar.gz" > checksums.txt
+          )
+
+      - name: Generate release notes
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          previous_tag="$(git describe --tags --abbrev=0 "${RELEASE_TAG}^" 2>/dev/null || true)"
+          if [[ -n "$previous_tag" ]]; then
+            commit_range="${previous_tag}..${RELEASE_TAG}"
+            comparison_url="https://github.com/${GITHUB_REPOSITORY}/compare/${previous_tag}...${RELEASE_TAG}"
+          else
+            commit_range="${RELEASE_TAG}"
+            comparison_url="https://github.com/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}"
+          fi
+
+          {
+            echo "## Changes"
+            echo
+            git log "$commit_range" --first-parent \
+              --pretty=format:'- %s ([`%h`](https://github.com/'"${GITHUB_REPOSITORY}"'/commit/%H))'
+            echo
+            echo
+            echo "**Full Changelog**: ${comparison_url}"
+          } > "${RUNNER_TEMP}/release-notes.md"
+
+      - name: Create or update GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: OpenAPI Service ${{ github.ref_name }}
+          body_path: ${{ runner.temp }}/release-notes.md
+          generate_release_notes: false
+          prerelease: ${{ steps.version.outputs.prerelease }}
+          make_latest: ${{ steps.version.outputs.prerelease == 'false' }}
+          fail_on_unmatched_files: true
+          files: |
+            release/*

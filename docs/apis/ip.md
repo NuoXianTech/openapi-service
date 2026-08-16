@@ -50,26 +50,20 @@ curl 'http://127.0.0.1:3000/v1/ip?ip=240e%3A391%3Aed3%3A8a10%3A%3A1'
 - `cz88_public_v4.czdb`
 - `cz88_public_v6.czdb`
 
-数据库文件不属于项目源码或构建产物，不得提交到 Git。外挂文件统一按 `data/<接口标识>` 分类；本接口固定读取项目根目录下的：
+数据库文件不属于项目源码或构建产物，不得提交到 Git。所有外挂文件统一位于 `SERVICE_DATA_DIR/assets/<module-id>`；本接口固定读取：
 
 ```text
-data/ip/cz88_public_v4.czdb
-data/ip/cz88_public_v6.czdb
+data/assets/ip/cz88_public_v4.czdb
+data/assets/ip/cz88_public_v6.czdb
 ```
 
-Git 仅忽略根目录下的 `data/ip`，不会屏蔽 `data` 中的其他文件或目录。Docker 内的对应路径为 `/app/data/ip`，建议把宿主机目录只读挂载到容器：
+Git 忽略整个本地 `data/`，避免误提交任何授权数据或运行快照。官方镜像中的对应路径为 `/app/data/assets/ip`，Service Compose 会把宿主机 `./data/assets` 整体只读挂载到容器：
 
 ```bash
--v /var/lib/openapi/data/ip:/app/data/ip:ro
+-v /var/lib/openapi-service/assets:/app/data/assets:ro
 ```
 
-数据库目录属于 API Service 部署配置；授权密钥属于 Service 业务配置：
-
-```text
-IP_DATABASE_DIRECTORY=/app/data/ip
-```
-
-把数据库目录只读挂载到 Service；在 Platform 的 Internal Upstream 管理页配置 Secret 字段 `ip.databaseKey`。保存后密钥会热更新，无需重启 Service。Service 不从环境变量读取该密钥，Platform 是唯一期望状态源。
+不再提供 `IP_DATABASE_DIRECTORY`。如需改变宿主机位置，只改变 Volume 左侧路径；容器内模块目录保持固定。在 Platform 的 Internal Upstream 管理页配置 Secret 字段 `ip.databaseKey`。保存后密钥会热更新，无需重启 Service。Service 不从环境变量读取该密钥，Platform 是唯一期望状态源。
 
 替换 CZDB 文件或修改挂载目录后滚动重启 `openapi-service`，不需要停止 Platform。数据库过期、密钥错误、文件缺失或损坏时返回 `503 IP_DATABASE_UNAVAILABLE`；密钥尚未配置时返回 `503 IP_DATABASE_NOT_CONFIGURED`。
 
