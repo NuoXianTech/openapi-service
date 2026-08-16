@@ -1,0 +1,57 @@
+{
+  "name": "openapi-service",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Independent Node.js business API service for OpenAPI Platform",
+  "type": "module",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "check:unused": "knip",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "licenses:check": "node scripts/check-production-licenses.mjs",
+    "build": "tsc -p tsconfig.build.json",
+    "measure:runtime": "node scripts/measure-runtime.mjs",
+    "start": "node --enable-source-maps dist/index.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@hono/zod-openapi": "^1.6.0",
+    "artplayer": "5.3.0",
+    "dashjs": "5.0.3",
+    "flv.js": "1.6.2",
+    "hls.js": "1.6.0",
+    "hono": "^4.13.2",
+    "iconv-lite": "0.6.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "knip": "6.32.2",
+    "tsx": "^4.23.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "knip": {
+    "project": [
+      "src/**/*.ts",
+      "test/**/*.ts",
+      "scripts/*.mjs"
+    ],
+    "ignoreDependencies": [
+      "artplayer",
+      "dashjs",
+      "flv.js",
+      "hls.js"
+    ],
+    "ignoreBinaries": [
+      "pwsh.exe"
+    ]
+  }
+}

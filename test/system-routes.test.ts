@@ -1,0 +1,157 @@
+import { randomUUID } from 'node:crypto'
+import { describe, expect, it } from 'vitest'
+import { createApp } from '../src/app.js'
+import type { ServiceConfig } from '../src/config/load.js'
+import type { Logger } from '../src/shared/logger.js'
+
+const currentToken = 'current-token-that-is-at-least-32-characters'
+const previousToken = 'previous-token-that-is-at-least-32-chars'
+
+const config: ServiceConfig = {
+  hostname: '127.0.0.1',
+  port: 8080,
+  serviceToken: currentToken,
+  previousToken,
+  readHeaderTimeoutMs: 5_000,
+  requestTimeoutMs: 20_000,
+  shutdownTimeoutMs: 10_000,
+  maxRequestBodyBytes: 1024 * 1024,
+  ipDatabaseDirectory: 'data/ip',
+  configurationFile: 'data/runtime/test.enc',
+  serviceId: 'openapi-service-test',
+  serviceName: 'OpenAPI Service Test',
+  version: '0.1.0-test',
+  commit: 'test-commit'
+}
+
+const silentLogger: Logger = {
+  info() {},
+  error() {}
+}
+
+function createTestApp() {
+  return createApp({ config, logger: silentLogger })
+}
+
+describe('system routes', () => {
+  it('exposes health without a Service Token', async () => {
+    const response = await createTestApp().request('/healthz')
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ status: 'ok' })
+    expect(response.headers.get('x-request-id')).toBeTruthy()
+  })
+
+  it('protects the OpenAPI document', async () => {
+    const response = await createTestApp().request('/openapi.json')
+
+    expect(response.status).toBe(401)
+    expect(response.headers.get('www-authenticate')).toBe(
+      'Service realm="openapi-service"'
+    )
+  })
+
+  it.each([currentToken, previousToken])(
+    'accepts an active Service Token',
+    async (token) => {
+      const response = await createTestApp().request('/openapi.json', {
+        headers: {
+          authorization: 'Service ' + token
+        }
+      })
+      const document = (await response.json()) as {
+        openapi: string
+        paths: Record<
+          string,
+          {
+            get?: {
+              responses?: Record<
+                string,
+                { headers?: Record<string, unknown> }
+              >
+            }
+          }
+        >
+      }
+
+      expect(response.status).toBe(200)
+      expect(document.openapi).toBe('3.1.0')
+      expect(document.paths).toHaveProperty('/healthz')
+      expect(document.paths).toHaveProperty('/openapi.json')
+      expect(
+        document.paths['/openapi.json']?.get?.responses?.['200']
+          ?.headers
+      ).toHaveProperty('etag')
+      expect(
+        document.paths['/openapi.json']?.get?.responses?.['304']
+          ?.headers
+      ).toHaveProperty('x-openapi-sha256')
+      expect(response.headers.get('x-openapi-sha256')).toMatch(
+        /^[0-9a-f]{64}$/
+      )
+      expect(response.headers.get('etag')).toBe(
+        `"sha256-${response.headers.get('x-openapi-sha256')}"`
+      )
+    }
+  )
+
+  it('exposes the same contract fingerprint in service discovery', async () => {
+    const app = createTestApp()
+    const headers = {
+      authorization: 'Service ' + currentToken
+    }
+    const openAPIResponse = await app.request('/openapi.json', { headers })
+    const descriptionResponse = await app.request(
+      '/.well-known/service.json',
+      { headers }
+    )
+    const description = (await descriptionResponse.json()) as {
+      openapiSha256: string
+      serviceId: string
+      configuration: { schemaSha256: string }
+    }
+
+    expect(descriptionResponse.status).toBe(200)
+    expect(description.openapiSha256).toBe(
+      openAPIResponse.headers.get('x-openapi-sha256')
+    )
+    expect(descriptionResponse.headers.get('x-openapi-sha256')).toBe(
+      description.openapiSha256
+    )
+    expect(description.serviceId).toBe(config.serviceId)
+    expect(description.configuration.schemaSha256).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it('returns 304 when Platform already has the current contract', async () => {
+    const app = createTestApp()
+    const authorization = 'Service ' + currentToken
+    const firstResponse = await app.request('/openapi.json', {
+      headers: { authorization }
+    })
+    const etag = firstResponse.headers.get('etag')
+
+    expect(etag).toBeTruthy()
+
+    const unchangedResponse = await app.request('/openapi.json', {
+      headers: {
+        authorization,
+        'if-none-match': etag ?? ''
+      }
+    })
+
+    expect(unchangedResponse.status).toBe(304)
+    expect(await unchangedResponse.text()).toBe('')
+    expect(unchangedResponse.headers.get('etag')).toBe(etag)
+  })
+
+  it('preserves a valid inbound request ID', async () => {
+    const requestID = randomUUID()
+    const response = await createTestApp().request('/healthz', {
+      headers: {
+        'x-request-id': requestID
+      }
+    })
+
+    expect(response.headers.get('x-request-id')).toBe(requestID)
+  })
+})
