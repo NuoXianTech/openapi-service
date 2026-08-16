@@ -1,0 +1,14 @@
+import type { ConfigurationGroup } from '../../configuration/types.js'
+
+export const exampleConfigurationGroup = {
+  key: 'example',
+  label: 'Example',
+  fields: [
+    {
+      key: 'example.enabled',
+      type: 'boolean',
+      label: 'Enable example endpoint',
+      default: true
+    }
+  ]
+} as const satisfies ConfigurationGroup

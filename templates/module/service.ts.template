@@ -1,0 +1,3 @@
+export async function getExample() {
+  return { value: 'example' }
+}

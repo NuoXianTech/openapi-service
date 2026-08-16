@@ -1,0 +1,8 @@
+import { describe, expect, it } from 'vitest'
+import { getExample } from '../../src/modules/example/service.js'
+
+describe('example module', () => {
+  it('returns its business value', async () => {
+    await expect(getExample()).resolves.toEqual({ value: 'example' })
+  })
+})
