@@ -1,7 +1,10 @@
 import { isIP } from 'node:net'
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi'
-import { createSuccessResponse, respondWithFailure } from '../../shared/response.js'
-import { createApiEnvelopeSchema } from '../../shared/openapi.js'
+import { respondWithFailure, respondWithSuccess } from '../../shared/response.js'
+import {
+  ApiErrorResponseSchema,
+  createSuccessEnvelopeSchema
+} from '../../shared/openapi.js'
 import type { AppEnv } from '../../types/app.js'
 import type { ServiceConfigurationManager } from '../../configuration/manager.js'
 import { IpLookupError, lookupIpLocation } from './service.js'
@@ -21,7 +24,7 @@ const IpLocationSchema = z.object({
   internet_service_provider: z.string().nullable(),
   database_version: z.number().int().nonnegative()
 })
-const IpEnvelopeSchema = createApiEnvelopeSchema(IpLocationSchema)
+const IpSuccessEnvelopeSchema = createSuccessEnvelopeSchema(IpLocationSchema)
 const ipRoute = createRoute({
   method: 'get',
   path: '/v1/ip',
@@ -31,19 +34,19 @@ const ipRoute = createRoute({
   request: { query: z.object({ ip: z.string().optional() }) },
   responses: {
     200: {
-      content: { 'application/json': { schema: IpEnvelopeSchema } },
+      content: { 'application/json': { schema: IpSuccessEnvelopeSchema } },
       description: 'IP location data'
     },
     400: {
-      content: { 'application/json': { schema: IpEnvelopeSchema } },
+      content: { 'application/json': { schema: ApiErrorResponseSchema } },
       description: 'IP is missing or invalid'
     },
     404: {
-      content: { 'application/json': { schema: IpEnvelopeSchema } },
+      content: { 'application/json': { schema: ApiErrorResponseSchema } },
       description: 'IP was not found'
     },
     503: {
-      content: { 'application/json': { schema: IpEnvelopeSchema } },
+      content: { 'application/json': { schema: ApiErrorResponseSchema } },
       description: 'CZDB is not configured or unavailable'
     }
   }
@@ -78,7 +81,7 @@ export function registerIpRoutes(
         database.directory
       )
       if (!data) return respondWithFailure(c, 404, 'IP_NOT_FOUND', '未找到该 IP 的归属地信息')
-      return c.json(createSuccessResponse(data, 'IP 归属地查询成功'), 200)
+      return respondWithSuccess(c, data)
     } catch (error) {
       if (error instanceof IpLookupError) {
         const message = error.code === 'IP_DATABASE_NOT_CONFIGURED'

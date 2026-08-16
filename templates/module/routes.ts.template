@@ -1,6 +1,6 @@
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi'
-import { createApiEnvelopeSchema } from '../../shared/openapi.js'
-import { createSuccessResponse } from '../../shared/response.js'
+import { createSuccessEnvelopeSchema } from '../../shared/openapi.js'
+import { respondWithSuccess } from '../../shared/response.js'
 import type { AppEnv } from '../../types/app.js'
 import { getExample } from './service.js'
 
@@ -18,7 +18,7 @@ const exampleRoute = createRoute({
     200: {
       content: {
         'application/json': {
-          schema: createApiEnvelopeSchema(ExampleDataSchema)
+          schema: createSuccessEnvelopeSchema(ExampleDataSchema)
         }
       },
       description: 'Example response'
@@ -28,6 +28,6 @@ const exampleRoute = createRoute({
 
 export function registerExampleRoutes(app: OpenAPIHono<AppEnv>) {
   app.openapi(exampleRoute, async (c) => {
-    return c.json(createSuccessResponse(await getExample()), 200)
+    return respondWithSuccess(c, await getExample())
   })
 }

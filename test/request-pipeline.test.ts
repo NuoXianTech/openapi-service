@@ -155,4 +155,47 @@ describe('request pipeline', () => {
       code: 'INVALID_ARGUMENT'
     })
   })
+
+  it('records rejected and failed requests with their final HTTP status', async () => {
+    const accessLogs: Array<Record<string, unknown>> = []
+    const logger: Logger = {
+      info(message, fields) {
+        if (message === 'request completed') {
+          accessLogs.push(fields ?? {})
+        }
+      },
+      error() {}
+    }
+    const app = createApp({ config: createConfig(), logger })
+    app.get('/test/failure', () => {
+      throw new Error('internal details must not be exposed')
+    })
+
+    const unauthorized = await app.request('/v1/yiyan')
+    const unauthorizedBody = await unauthorized.json() as Record<string, unknown>
+    expect(unauthorized.status).toBe(401)
+    expect(unauthorizedBody).toMatchObject({
+      code: 'UNAUTHORIZED',
+      data: null
+    })
+    expect(unauthorized.headers.get('x-openapi-error-code')).toBe('UNAUTHORIZED')
+
+    const failed = await app.request('/test/failure', {
+      headers: authorization
+    })
+    const failedBody = await failed.json() as Record<string, unknown>
+    expect(failed.status).toBe(500)
+    expect(Object.keys(failedBody).sort()).toEqual(['code', 'data', 'message', 'timestamp'])
+    expect(failedBody).toMatchObject({
+      code: 'INTERNAL_ERROR',
+      message: '服务内部错误',
+      data: null
+    })
+    expect(failed.headers.get('x-openapi-error-code')).toBe('INTERNAL_ERROR')
+
+    expect(accessLogs).toEqual([
+      expect.objectContaining({ status: 401, outcome: 'rejected' }),
+      expect.objectContaining({ status: 500, outcome: 'error' })
+    ])
+  })
 })

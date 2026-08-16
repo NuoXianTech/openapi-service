@@ -1,6 +1,13 @@
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi'
-import { createSuccessResponse, respondWithFailure } from '../../shared/response.js'
-import { createApiEnvelopeSchema } from '../../shared/openapi.js'
+import {
+  createSuccessResponse,
+  respondWithFailure,
+  respondWithSuccess
+} from '../../shared/response.js'
+import {
+  ApiErrorResponseSchema,
+  createSuccessEnvelopeSchema
+} from '../../shared/openapi.js'
 import type { AppEnv } from '../../types/app.js'
 import {
   encodeYiyanBody,
@@ -47,7 +54,7 @@ const YiyanRecordSchema = z.object({
   length: z.number().int().nonnegative()
 })
 
-const PublicEnvelopeSchema = createApiEnvelopeSchema(YiyanRecordSchema)
+const YiyanSuccessEnvelopeSchema = createSuccessEnvelopeSchema(YiyanRecordSchema)
 
 const yiyanRoute = createRoute({
   method: 'get',
@@ -59,7 +66,7 @@ const yiyanRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': { schema: PublicEnvelopeSchema },
+        'application/json': { schema: YiyanSuccessEnvelopeSchema },
         'text/plain': { schema: z.string() },
         'text/markdown': { schema: z.string() },
         'application/javascript': { schema: z.string() }
@@ -67,11 +74,11 @@ const yiyanRoute = createRoute({
       description: 'A sentence in the requested representation'
     },
     400: {
-      content: { 'application/json': { schema: PublicEnvelopeSchema } },
+      content: { 'application/json': { schema: ApiErrorResponseSchema } },
       description: 'Invalid parameters'
     },
     404: {
-      content: { 'application/json': { schema: PublicEnvelopeSchema } },
+      content: { 'application/json': { schema: ApiErrorResponseSchema } },
       description: 'No matching sentence'
     }
   }
@@ -142,8 +149,8 @@ export function registerYiyanRoutes(app: OpenAPIHono<AppEnv>) {
     c.header('cache-control', 'no-store')
     const record = toRecord(sentence, type)
     if (callback || encode === 'json') {
-      const envelope = createSuccessResponse(record, '获取一言成功')
-      if (!callback && charset === 'utf-8') return c.json(envelope, 200)
+      const envelope = createSuccessResponse(record)
+      if (!callback && charset === 'utf-8') return respondWithSuccess(c, record)
       const text = callback
         ? `${callback}(${JSON.stringify(envelope)})`
         : JSON.stringify(envelope)

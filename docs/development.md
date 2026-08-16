@@ -26,10 +26,11 @@ pnpm measure:runtime
 1. 定义稳定输入、输出和错误码。
 2. 需要外部来源时建立普通 Source Client。
 3. 使用 `createRoute` 与 Zod 定义 Endpoint。
-4. 在 `src/modules/index.ts` 显式注册。
-5. 补充单元、HTTP、Fixture 和 OpenAPI 测试。
-6. 发布 Service。
-7. 在 Platform 创建 Route 草稿并发布 Revision。
+4. JSON 成功响应使用 `respondWithSuccess`，错误使用 `respondWithFailure`；不要手写另一套响应壳。
+5. 在 `src/modules/index.ts` 显式注册。
+6. 补充单元、HTTP、Fixture 和 OpenAPI 测试。
+7. 发布 Service。
+8. 在 Platform 创建 Route 草稿并发布 Revision。
 
 Platform 不会因为 Service 的 OpenAPI 新增 Endpoint 而自动公开它。
 
@@ -54,6 +55,7 @@ Platform 不会因为 Service 的 OpenAPI 新增 Endpoint 而自动公开它。
 ## 6. 测试要求
 
 - HTTP Endpoint 至少覆盖成功和参数错误。
+- JSON 测试必须校验 `code/message/data/timestamp` 四字段以及错误响应的 `X-OpenAPI-Error-Code`。
 - 有外部来源时覆盖失败、超时、取消和脱敏 Fixture。
 - 静态资产要验证固定版本、缓存头和 Content-Type。
 - OpenAPI 测试必须确认删除的接口不会继续出现在契约中。

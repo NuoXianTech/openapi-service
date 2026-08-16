@@ -23,20 +23,26 @@ export const requestContextMiddleware = createMiddleware<AppEnv>(
 export function createAccessLogMiddleware(logger: Logger) {
   return createMiddleware<AppEnv>(async (c, next) => {
     const startedAt = performance.now()
-    let outcome = 'completed'
+    let threw = false
 
     try {
       await next()
     } catch (error) {
-      outcome = 'error'
+      threw = true
       throw error
     } finally {
+      const status = c.res.status
+      const outcome = threw || status >= 500
+        ? 'error'
+        : status >= 400
+          ? 'rejected'
+          : 'completed'
       logger.info('request completed', {
         request_id: c.get('requestId'),
         traceparent: c.req.header('traceparent'),
         method: c.req.method,
         path: c.req.path,
-        status: c.res.status,
+        status,
         outcome,
         duration_ms: Math.round((performance.now() - startedAt) * 100) / 100
       })

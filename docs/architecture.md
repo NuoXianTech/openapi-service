@@ -78,6 +78,8 @@ test/
 
 ## 5. 契约与错误
 
+业务 JSON 统一由 `respondWithSuccess` 或 `respondWithFailure` 返回，固定包含 `code/message/data/timestamp`。成功响应默认使用 `code=OK`、`message=请求成功`；错误响应额外返回 `X-OpenAPI-Error-Code`，供 Platform 在不读取或缓冲响应体的情况下记录稳定错误码。
+
 Zod Schema 是请求、响应和 OpenAPI 的单一来源。未知异常只公开稳定的 `INTERNAL_ERROR`；日志不得输出 Token、Cookie、数据库密钥、完整签名 URL或第三方响应正文。
 
 OpenAPI 文档确定性排序并计算 SHA-256。指纹变化只表示 Service 契约变化，不会自动修改 Platform 的活动 Route。

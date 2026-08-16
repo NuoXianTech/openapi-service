@@ -1,21 +1,21 @@
 import { z } from '@hono/zod-openapi'
 import type { ZodType } from 'zod'
 
-export function createApiEnvelopeSchema<TSchema extends ZodType>(
+export function createSuccessEnvelopeSchema<TSchema extends ZodType>(
   dataSchema: TSchema
 ) {
   return z.object({
-    code: z.string(),
-    message: z.string(),
+    code: z.literal('OK'),
+    message: z.string().min(1),
     data: dataSchema.nullable(),
-    timestamp: z.number().int()
+    timestamp: z.number().int().nonnegative()
   })
 }
 
 export const ApiErrorResponseSchema = z
   .object({
     code: z.string(),
-    message: z.string(),
+    message: z.string().min(1),
     data: z
       .record(
         z.string(),
@@ -27,6 +27,6 @@ export const ApiErrorResponseSchema = z
         ])
       )
       .nullable(),
-    timestamp: z.number().int()
+    timestamp: z.number().int().nonnegative()
   })
   .openapi('ApiErrorResponse')

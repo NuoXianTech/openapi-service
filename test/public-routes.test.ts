@@ -34,13 +34,19 @@ describe('migrated public routes', () => {
     })
     const json = await jsonResponse.json() as {
       code: string
+      message: string
       data: { id: string, yiyan: string }
+      timestamp: number
     }
 
     expect(jsonResponse.status).toBe(200)
+    expect(Object.keys(json).sort()).toEqual(['code', 'data', 'message', 'timestamp'])
     expect(json.code).toBe('OK')
+    expect(json.message).toBe('请求成功')
     expect(json.data.id).toBe('a1')
     expect(json.data.yiyan).toBeTruthy()
+    expect(Number.isSafeInteger(json.timestamp)).toBe(true)
+    expect(json.timestamp).toBeGreaterThan(0)
     expect(jsonResponse.headers.get('cache-control')).toBe('no-store')
 
     const textResponse = await app().request(
@@ -59,10 +65,20 @@ describe('migrated public routes', () => {
       '/v1/yiyan?callback=alert(1)',
       { headers: authorization }
     )
-    const body = await response.json() as { code: string }
+    const body = await response.json() as {
+      code: string
+      message: string
+      data: unknown
+      timestamp: number
+    }
 
     expect(response.status).toBe(400)
+    expect(Object.keys(body).sort()).toEqual(['code', 'data', 'message', 'timestamp'])
     expect(body.code).toBe('INVALID_PARAMETER')
+    expect(body.data).toBeNull()
+    expect(Number.isSafeInteger(body.timestamp)).toBe(true)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(response.headers.get('x-openapi-error-code')).toBe('INVALID_PARAMETER')
   })
 
   it('renders player HTML with pinned same-origin assets and escaped input', async () => {
@@ -116,6 +132,9 @@ describe('migrated public routes', () => {
     expect(response.status).toBe(503)
     expect(body.code).toBe('IP_DATABASE_NOT_CONFIGURED')
     expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(response.headers.get('x-openapi-error-code')).toBe(
+      'IP_DATABASE_NOT_CONFIGURED'
+    )
   })
 
   it('rejects invalid IP input before database access', async () => {
@@ -126,5 +145,6 @@ describe('migrated public routes', () => {
 
     expect(response.status).toBe(400)
     expect(body.code).toBe('INVALID_IP')
+    expect(response.headers.get('x-openapi-error-code')).toBe('INVALID_IP')
   })
 })
