@@ -37,6 +37,16 @@ const authorization = {
   authorization: 'Service ' + serviceToken
 }
 
+const platformContextHeaders = {
+  'x-openapi-route-id': '9fc56699-b603-4ebd-86ef-e67a77df4f7d',
+  'x-openapi-upstream-id': '0a2d467c-12cd-4c39-9ff0-46c037ae74eb',
+  'x-openapi-environment-id': '1af74b09-b9e3-40bb-bb6f-6cf6b97bd735',
+  'x-openapi-revision-id': '9ec01c1b-6d63-478c-866b-6148d927ced7',
+  'x-openapi-product-id': '488651d5-d95b-46c6-81b0-0afe7d7fb5d0',
+  'x-openapi-product-slug': 'public-utilities',
+  'x-openapi-api-version': 'v1'
+}
+
 describe('request pipeline', () => {
   it('returns 503 while the runtime is not ready', async () => {
     const runtimeState = new RuntimeState(false, 'maintenance')
@@ -181,7 +191,10 @@ describe('request pipeline', () => {
     expect(unauthorized.headers.get('x-openapi-error-code')).toBe('UNAUTHORIZED')
 
     const failed = await app.request('/test/failure', {
-      headers: authorization
+      headers: {
+        ...authorization,
+        ...platformContextHeaders
+      }
     })
     const failedBody = await failed.json() as Record<string, unknown>
     expect(failed.status).toBe(500)
@@ -195,7 +208,21 @@ describe('request pipeline', () => {
 
     expect(accessLogs).toEqual([
       expect.objectContaining({ status: 401, outcome: 'rejected' }),
-      expect.objectContaining({ status: 500, outcome: 'error' })
+      expect.objectContaining({
+        status: 500,
+        outcome: 'error',
+        platform_route_id: platformContextHeaders['x-openapi-route-id'],
+        platform_upstream_id: platformContextHeaders['x-openapi-upstream-id'],
+        platform_environment_id:
+          platformContextHeaders['x-openapi-environment-id'],
+        platform_revision_id:
+          platformContextHeaders['x-openapi-revision-id'],
+        platform_product_id: platformContextHeaders['x-openapi-product-id'],
+        platform_product_slug:
+          platformContextHeaders['x-openapi-product-slug'],
+        platform_api_version:
+          platformContextHeaders['x-openapi-api-version']
+      })
     ])
   })
 })

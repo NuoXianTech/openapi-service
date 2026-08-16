@@ -65,6 +65,7 @@ describe('system routes', () => {
           string,
           {
             get?: {
+              'x-openapi-platform'?: { support?: boolean }
               responses?: Record<
                 string,
                 { headers?: Record<string, unknown> }
@@ -78,6 +79,12 @@ describe('system routes', () => {
       expect(document.openapi).toBe('3.1.0')
       expect(document.paths).toHaveProperty('/healthz')
       expect(document.paths).toHaveProperty('/openapi.json')
+      expect(
+        document.paths['/v1/player/assets/{asset}']?.get?.['x-openapi-platform']
+      ).toEqual({ support: true })
+      expect(
+        document.paths['/v1/player']?.get?.['x-openapi-platform']
+      ).toBeUndefined()
       expect(
         document.paths['/openapi.json']?.get?.responses?.['200']
           ?.headers

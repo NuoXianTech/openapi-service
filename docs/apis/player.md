@@ -25,14 +25,20 @@ DPlayer 1.27.2 / nuoxi4n
 GET /v1/player/assets/{asset}
 ```
 
-资产响应使用长期 immutable 缓存。Platform 中该 Route 必须配置为：
+资产响应使用长期 immutable 缓存，并在 OpenAPI 中声明为 Platform 支撑 Route：
 
-```text
-isApiKey = false
-creditsCost = 0
-isStatistics = false（推荐）
+```ts
+'x-openapi-platform': {
+  support: true
+}
 ```
 
-否则浏览器加载 `<script>` 时无法携带用户 API Key。
+Platform 不会把它显示为独立公共接口。发布 `/v1/player` 或
+`/v1/player/art` 时，Platform 会自动创建并启用资产 Route，同时固定
+`isApiKey=false`、`creditsCost=0`、`isStatistics=false`，因为浏览器加载
+`<script>` 时无法携带用户 API Key。
 
-播放器启停由 Platform 分别启停 `/v1/player`、`/v1/player/art` 和资产 Route 完成，Service 不存在“播放器接口能力配置”。播放器 HTML 自己返回所需 CSP 和安全响应头。
+`/v1/player` 与 `/v1/player/art` 共享 `Player` Tag，因此在 Platform 中属于
+同一个 Product，但仍可分别启停。只要其中任意一个公开 Route 启用，资产 Route
+就保持启用；两者都停用后资产 Route 自动停用。Service 不存在“播放器接口能力
+配置”，播放器 HTML 自己返回所需 CSP 和安全响应头。

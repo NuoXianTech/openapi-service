@@ -34,6 +34,22 @@ pnpm measure:runtime
 
 Platform 不会因为 Service 的 OpenAPI 新增 Endpoint 而自动公开它。
 
+同一逻辑 API 的 Operation 应使用相同的第一个业务 Tag。Platform 会忽略
+`System` Tag，并按第一个业务 Tag 创建 Product；例如 `/v1/player` 与
+`/v1/player/art` 都使用 `Player`，因此属于同一个 Product。
+
+只为公开 Operation 提供内部支撑能力的 Route，使用以下 OpenAPI 扩展：
+
+```ts
+'x-openapi-platform': {
+  support: true
+}
+```
+
+支撑 Route 不会显示在接口目录，也不能独立发布或配置。Platform 会在同组任意
+公开 Route 启用时自动启用它，并强制关闭 API Key、积分和统计；同组公开 Route
+全部停用后，支撑 Route 自动停用。
+
 ## 4. 新增业务配置
 
 1. 在模块目录新增或修改 `configuration.ts`，由模块拥有字段语义。

@@ -84,6 +84,11 @@ Zod Schema 是请求、响应和 OpenAPI 的单一来源。未知异常只公开
 
 OpenAPI 文档确定性排序并计算 SHA-256。指纹变化只表示 Service 契约变化，不会自动修改 Platform 的活动 Route。
 
+Platform 按 Operation 的第一个非 `System` Tag 组织 Product。同一业务的多个
+Operation 应共享该 Tag。只为公开 Operation 提供资产或内部依赖的 Operation
+使用 `x-openapi-platform.support=true`；它仍经过 Gateway 转发，但由 Platform
+隐藏并随同组公开 Route 自动启停，不形成可独立治理的公共接口。
+
 ## 6. 业务配置控制面
 
 需要业务配置的模块在自己的 `src/modules/<module>/configuration.ts` 声明字段，`src/modules/index.ts` 与 Route 一起显式组合。Service 通过受 Service Token 保护的 well-known 端点暴露 Schema、脱敏状态和更新入口。Platform 只理解通用字段类型，不理解 IP、音乐或 Crypto 业务语义。

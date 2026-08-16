@@ -83,13 +83,17 @@ implements ConfigurationSnapshotStore {
     }
 
     let lastError: unknown
-    for (const token of this.#tokens) {
+    for (const [index, token] of this.#tokens.entries()) {
+      let snapshot: PersistedConfigurationSnapshot
       try {
         const plaintext = decryptPayload(envelope, token)
-        return snapshotSchema.parse(JSON.parse(plaintext))
+        snapshot = snapshotSchema.parse(JSON.parse(plaintext))
       } catch (error) {
         lastError = error
+        continue
       }
+      if (index > 0) await this.save(snapshot)
+      return snapshot
     }
     throw new Error('configuration file could not be decrypted', {
       cause: lastError

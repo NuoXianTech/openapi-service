@@ -64,6 +64,7 @@ const assetRoute = createRoute({
   path: '/v1/player/assets/{asset}',
   operationId: 'getPlayerAsset',
   tags: ['Player'],
+  'x-openapi-platform': { support: true },
   security: [{ serviceToken: [] }],
   request: { params: z.object({ asset: z.string().min(1).max(100) }) },
   responses: {
