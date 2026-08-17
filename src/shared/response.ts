@@ -24,9 +24,10 @@ export function createSuccessResponse<T>(
 export function respondWithSuccess<T>(
   c: Context<AppEnv>,
   data: T,
-  message = '请求成功'
+  message = '请求成功',
+  cacheControl = 'no-store'
 ) {
-  c.header('cache-control', 'no-store')
+  c.header('cache-control', cacheControl)
   return c.json(createSuccessResponse(data, message), 200)
 }
 

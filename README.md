@@ -31,6 +31,23 @@ GET /v1/player
 GET /v1/player/art
 GET /v1/player/assets/{asset}
 GET /v1/ip
+GET /v1/60s
+GET /v1/bing
+GET|POST /v1/crypto
+GET /v1/epic
+GET /v1/exchange-rate
+GET /v1/fuel-price
+GET /v1/fuel-price/regions (support)
+GET /v1/gold-price
+GET /v1/lanzou
+GET /v1/luck
+GET /v1/minecraft
+GET /v1/music
+POST /v1/password/check
+GET /v1/password
+GET /v1/qq-avatar
+GET /v1/short-video
+GET /v1/today-in-history
 ```
 
 `/healthz` 与 `/readyz` 可在内部网络免 Token 访问，其余端点要求：
@@ -91,6 +108,22 @@ pnpm measure:runtime
 - [一言接口](docs/apis/yiyan.md)
 - [播放器接口](docs/apis/player.md)
 - [IP 接口](docs/apis/ip.md)
+- [每日 60 秒接口](docs/apis/60s.md)
+- [Bing 每日壁纸接口](docs/apis/bing.md)
+- [加密与解密接口](docs/apis/crypto.md)
+- [Epic 免费游戏接口](docs/apis/epic.md)
+- [汇率接口](docs/apis/exchange-rate.md)
+- [国内油价接口](docs/apis/fuel-price.md)
+- [贵金属价格接口](docs/apis/gold-price.md)
+- [蓝奏云链接解析接口](docs/apis/lanzou.md)
+- [今日运势接口](docs/apis/luck.md)
+- [Minecraft 玩家资料接口](docs/apis/minecraft.md)
+- [音乐解析接口](docs/apis/music.md)
+- [密码强度检测接口](docs/apis/password-check.md)
+- [随机密码生成接口](docs/apis/password-generator.md)
+- [QQ 头像接口](docs/apis/qq-avatar.md)
+- [短视频解析接口](docs/apis/short-video.md)
+- [历史上的今天接口](docs/apis/today-in-history.md)
 
 ## 致谢
 
