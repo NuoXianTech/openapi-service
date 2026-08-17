@@ -34,6 +34,6 @@ function manager(): ServiceConfigurationManager {
 export function enabledMusicPlatforms(): Set<string> {
   return new Set(manager().getValue<string[]>('music.enabledPlatforms'))
 }
-export function getMusicPlatformCookie(platform: MusicPlatform): Promise<string> {
-  return Promise.resolve(manager().getValue<string>(`music.${platform}Cookie`))
+export function getMusicPlatformCookie(platform: MusicPlatform): string {
+  return manager().getValue<string>(`music.${platform}Cookie`)
 }

@@ -1,6 +1,7 @@
 import { load } from 'cheerio/slim'
-import { readLimitedText, safeFetch } from '../../shared/safe-fetch.js'
-import { waitForAbort } from '../../shared/abort.js'
+import { AsyncCache } from '../../shared/async-cache.js'
+import { readLimitedText } from '../../shared/limited-response.js'
+import { safeFetch } from '../../shared/safe-fetch.js'
 
 export interface TodayInHistoryDate {
   date: string
@@ -25,8 +26,7 @@ export interface TodayInHistoryData {
 type MonthData = Record<string, TodayInHistoryEvent[]>
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
-const cache = new Map<string, { expiresAt: number, data: MonthData }>()
-const pending = new Map<string, Promise<MonthData>>()
+const cache = new AsyncCache<string, MonthData>({ ttlMs: CACHE_TTL_MS })
 const eventLabels = { birth: '出生', death: '逝世', event: '事件' } as const
 const shanghaiDate = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit'
@@ -195,20 +195,12 @@ export async function getTodayInHistory(
   signal?: AbortSignal
 ): Promise<TodayInHistoryData> {
   const key = String(date.month).padStart(2, '0')
-  let entry = cache.get(key)
-  if (!entry || entry.expiresAt <= Date.now()) {
-    let request = pending.get(key)
-    if (!request) {
-      request = fetchMonth(date.month).then((data) => {
-        cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS })
-        return data
-      }).finally(() => pending.delete(key))
-      pending.set(key, request)
-    }
-    const data = await waitForAbort(request, signal)
-    entry = { data, expiresAt: Date.now() + CACHE_TTL_MS }
-  }
-  const items = (entry.data[date.dayKey] ?? []).map(item => ({ ...item }))
+  const month = await cache.get(
+    key,
+    () => fetchMonth(date.month),
+    { signal }
+  )
+  const items = (month[date.dayKey] ?? []).map(item => ({ ...item }))
   return {
     date: date.date, month: date.month, day: date.day,
     items, total: items.length
@@ -217,7 +209,6 @@ export async function getTodayInHistory(
 
 export function clearTodayInHistoryCache(): void {
   cache.clear()
-  pending.clear()
 }
 
 function yearLabel(year: string): string {

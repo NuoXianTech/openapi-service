@@ -30,7 +30,7 @@ function createHeaders(configuredCookie: string): Record<string, string> {
 }
 
 async function requestNetease(options: NeteaseRequestOptions, signal?: AbortSignal): Promise<unknown> {
-  const cookie = await getMusicPlatformCookie('netease')
+  const cookie = getMusicPlatformCookie('netease')
   const payload = await requestJson(`${BASE_URL}${options.path.replace('/api/', '/eapi/')}`, {
     method: 'POST',
     headers: createHeaders(cookie),

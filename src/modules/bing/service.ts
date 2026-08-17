@@ -1,4 +1,4 @@
-import { readLimitedResponseText } from '../../shared/limited-response.js'
+import { readLimitedText } from '../../shared/limited-response.js'
 import { waitForAbort } from '../../shared/abort.js'
 
 const BING_BASE_URL = 'https://bing.com'
@@ -208,7 +208,7 @@ async function fetchFromPrimary(): Promise<BingImageRecord | null> {
     await response.body?.cancel().catch(() => undefined)
     return null
   }
-  const html = await readLimitedResponseText(
+  const html = await readLimitedText(
     response,
     MAX_PRIMARY_BYTES,
     'Bing primary response is too large'
@@ -228,7 +228,7 @@ async function fetchFromArchive(): Promise<BingImageRecord> {
     await response.body?.cancel().catch(() => undefined)
     throw new Error(`Bing archive responded with HTTP ${response.status}`)
   }
-  const text = await readLimitedResponseText(
+  const text = await readLimitedText(
     response,
     MAX_ARCHIVE_BYTES,
     'Bing archive response is too large'

@@ -19,8 +19,8 @@ interface QianqianTrackDefaults {
   artists?: string[]
 }
 
-async function createHeaders(): Promise<Record<string, string>> {
-  const cookie = await getMusicPlatformCookie('baidu')
+function createHeaders(): Record<string, string> {
+  const cookie = getMusicPlatformCookie('baidu')
   return cookie ? { ...BASE_HEADERS, cookie } : BASE_HEADERS
 }
 
@@ -44,7 +44,7 @@ async function requestQianqian(
   signal?: AbortSignal,
   allowEmpty = false
 ): Promise<unknown> {
-  const payload = await requestJson(createSignedUrl(path, params), { headers: await createHeaders(), signal })
+  const payload = await requestJson(createSignedUrl(path, params), { headers: createHeaders(), signal })
   if (!isRecord(payload)) throw new Error('千千音乐上游返回了无效数据')
 
   const errno = readNumber(payload.errno)
@@ -191,7 +191,7 @@ export async function getBaiduLyrics(id: string, signal?: AbortSignal): Promise<
   const info = await getQianqianSongInfo(id, signal)
   const lyricUrl = readString(info?.lyric).trim()
   if (!lyricUrl || !isTrustedQianqianResource(lyricUrl)) return { lyric: '', tlyric: '' }
-  const lyric = await requestText(lyricUrl, { headers: await createHeaders(), signal })
+  const lyric = await requestText(lyricUrl, { headers: createHeaders(), signal })
   return { lyric, tlyric: '' }
 }
 

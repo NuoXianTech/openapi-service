@@ -6,8 +6,8 @@ const DEFAULT_COOKIE = 'pgv_pvi=22038528; pgv_si=s3156287488; yplayer_open=1; qq
 const BASE_HEADERS = { 'referer': 'https://y.qq.com', 'user-agent': 'QQMusic/54409 CFNetwork/901.1 Darwin/17.6.0', 'accept': '*/*' }
 const API = 'https://c.y.qq.com'
 
-async function createHeaders(): Promise<Record<string, string>> {
-  const cookie = await getMusicPlatformCookie('tencent')
+function createHeaders(): Record<string, string> {
+  const cookie = getMusicPlatformCookie('tencent')
   return { ...BASE_HEADERS, cookie: mergeCookieHeader(DEFAULT_COOKIE, cookie) }
 }
 
@@ -33,7 +33,7 @@ function assertTencentSuccess(payload: unknown): void {
 
 async function get(path: string, params: Record<string, string | number>, signal?: AbortSignal): Promise<unknown> {
   const payload = await requestJson(buildUrl(path.startsWith('http') ? path : `${API}${path}`, params), {
-    headers: await createHeaders(),
+    headers: createHeaders(),
     signal
   })
   assertTencentSuccess(payload)
@@ -81,7 +81,7 @@ export async function getTencentArtist(id: string, limit: number, signal?: Abort
 }
 
 export async function getTencentUrl(id: string, bitrate: number, signal?: AbortSignal): Promise<MusicResourceUrl> {
-  const cookie = await getMusicPlatformCookie('tencent')
+  const cookie = getMusicPlatformCookie('tencent')
   const uin = /(?:^|;\s*)uin=o?(\d+)/.exec(cookie)?.[1] || '0'
   const songPayload = await get('/v8/fcg-bin/fcg_play_single_song.fcg', { songmid: id, platform: 'yqq', format: 'json' }, signal)
   const song = readPath(songPayload, 'data.0')
@@ -116,7 +116,7 @@ function decodeEntities(value: string): string {
 
 export async function getTencentLyrics(id: string, signal?: AbortSignal): Promise<MusicLyrics> {
   const text = await requestText(buildUrl(`${API}/lyric/fcgi-bin/fcg_query_lyric_new.fcg`, { songmid: id, g_tk: '5381' }), {
-    headers: await createHeaders(),
+    headers: createHeaders(),
     signal
   })
   const payload = parseJsonResponseText(text) as UnknownRecord

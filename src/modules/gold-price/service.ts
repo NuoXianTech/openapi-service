@@ -1,5 +1,5 @@
 import { waitForAbort } from '../../shared/abort.js'
-import { readLimitedResponseText } from '../../shared/limited-response.js'
+import { readLimitedText } from '../../shared/limited-response.js'
 
 interface QuoteConfig { code: string, name: string, unit: string }
 interface UnknownRecord { [key: string]: unknown }
@@ -195,7 +195,7 @@ async function fetchGoldPrice(): Promise<GoldPriceData> {
     await response.body?.cancel().catch(() => undefined)
     throw new Error(`金价上游返回 HTTP ${response.status}`)
   }
-  const script = await readLimitedResponseText(
+  const script = await readLimitedText(
     response, MAX_RESPONSE_BYTES, '金价上游响应过大'
   )
   return normalizeGoldPriceResponse(parseGoldQuoteScript(script))

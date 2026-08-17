@@ -13,10 +13,12 @@ vi.mock('../src/shared/safe-fetch.js', () => ({
   safeFetch: (input: string | URL, options: RequestInit) => (
     globalThis.fetch(input, options)
   ),
-  readLimitedText: (response: Response) => response.text(),
   isHostnameWithin: (hostname: string, allowed: string) => (
     hostname === allowed || hostname.endsWith(`.${allowed}`)
   )
+}))
+vi.mock('../src/shared/limited-response.js', () => ({
+  readLimitedText: (response: Response) => response.text()
 }))
 
 const token = 'lanzou-test-token-that-is-at-least-32-characters'

@@ -1,4 +1,5 @@
-import { readLimitedResponseText } from '../../shared/limited-response.js'
+import { AsyncCache } from '../../shared/async-cache.js'
+import { readLimitedText } from '../../shared/limited-response.js'
 
 const API_URL = 'https://open.er-api.com/v6/latest'
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000
@@ -18,9 +19,10 @@ export interface ExchangeRateData {
   rates: Array<{ currency: string, rate: number }>
 }
 
-interface CacheEntry { expiresAt: number, data: ExchangeRateData }
-const cache = new Map<string, CacheEntry>()
-const pending = new Map<string, Promise<ExchangeRateData>>()
+const cache = new AsyncCache<string, ExchangeRateData>({
+  ttlMs: CACHE_TTL_MS,
+  maxEntries: 32
+})
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -80,7 +82,7 @@ async function fetchRates(currency: string): Promise<ExchangeRateData> {
     await response.body?.cancel().catch(() => undefined)
     throw new Error(`汇率上游返回 HTTP ${response.status}`)
   }
-  const text = await readLimitedResponseText(
+  const text = await readLimitedText(
     response,
     MAX_RESPONSE_BYTES,
     '汇率上游响应过大'
@@ -94,25 +96,11 @@ async function fetchRates(currency: string): Promise<ExchangeRateData> {
 }
 
 export async function getExchangeRates(currency: string): Promise<ExchangeRateData> {
-  const existing = cache.get(currency)
-  if (existing && existing.expiresAt > Date.now()) return existing.data
-  let request = pending.get(currency)
-  if (!request) {
-    request = fetchRates(currency).then((data) => {
-      if (cache.size >= 32 && !cache.has(currency)) {
-        cache.delete(cache.keys().next().value as string)
-      }
-      cache.set(currency, { data, expiresAt: Date.now() + CACHE_TTL_MS })
-      return data
-    }).finally(() => pending.delete(currency))
-    pending.set(currency, request)
-  }
-  return await request
+  return cache.get(currency, () => fetchRates(currency))
 }
 
 export function clearExchangeRateCache(): void {
   cache.clear()
-  pending.clear()
 }
 
 export function formatExchangeRateText(data: ExchangeRateData): string {

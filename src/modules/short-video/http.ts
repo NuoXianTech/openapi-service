@@ -1,6 +1,7 @@
 import type { ShortVideoPlatform } from './types.js'
 import { createShortVideoError } from './types.js'
-import { readLimitedText, safeFetch } from '../../shared/safe-fetch.js'
+import { readLimitedText } from '../../shared/limited-response.js'
+import { safeFetch } from '../../shared/safe-fetch.js'
 
 const DEFAULT_TIMEOUT_MS = 15_000
 const DEFAULT_MAX_RESPONSE_BYTES = 8 * 1024 * 1024

@@ -1,4 +1,4 @@
-import { readLimitedResponseText } from '../../shared/limited-response.js'
+import { readLimitedText } from '../../shared/limited-response.js'
 
 const API_URL = 'https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=zh-CN&country=CN&allowCountries=CN'
 const CACHE_TTL_MS = 10 * 60 * 1000
@@ -226,7 +226,7 @@ async function fetchGames(signal?: AbortSignal): Promise<EpicFreeGame[]> {
     throw new Error(`Epic 上游返回 HTTP ${response.status}`)
   }
   try {
-    const text = await readLimitedResponseText(
+    const text = await readLimitedText(
       response,
       MAX_RESPONSE_BYTES,
       'Epic 上游响应过大'

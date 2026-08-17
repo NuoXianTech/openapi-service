@@ -1,5 +1,6 @@
 import { load } from 'cheerio/slim'
-import { readLimitedText, safeFetch } from '../../shared/safe-fetch.js'
+import { readLimitedText } from '../../shared/limited-response.js'
+import { safeFetch } from '../../shared/safe-fetch.js'
 
 const HOST_PATTERN = /^(?:[a-z0-9-]+\.)?lanzou[a-z]?\.com$/i
 const FILE_PATTERN = /^i[a-z0-9_-]{5,127}$/i

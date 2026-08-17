@@ -1,4 +1,4 @@
-import { waitForAbort } from '../../shared/abort.js'
+import { AsyncCache } from '../../shared/async-cache.js'
 import { getBaiduArtist, getBaiduLyrics, getBaiduPicture, getBaiduTracks, getBaiduUrl, searchBaidu } from './baidu.js'
 import { getKugouArtist, getKugouLyrics, getKugouPicture, getKugouTracks, getKugouUrl, searchKugou } from './kugou.js'
 import { getKuwoArtist, getKuwoLyrics, getKuwoPicture, getKuwoTracks, getKuwoUrl, searchKuwo } from './kuwo.js'
@@ -9,6 +9,10 @@ import { MUSIC_PLATFORMS, type MusicCollectionOperation, type MusicLyrics, type 
 const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000
 const MAX_SEARCH_CACHE_ENTRIES = 128
 const MAX_COLLECTION_TRACKS = 200
+const searchCache = new AsyncCache<string, MusicTrack[]>({
+  ttlMs: SEARCH_CACHE_TTL_MS,
+  maxEntries: MAX_SEARCH_CACHE_ENTRIES
+})
 
 interface MusicProvider {
   search(keyword: string, page: number, limit: number, signal?: AbortSignal): Promise<MusicTrack[]>
@@ -33,36 +37,19 @@ export function isMusicPlatform(value: string): value is MusicPlatform {
 
 export function searchMusic(options: MusicSearchOptions, signal?: AbortSignal): Promise<MusicTrack[]> {
   const key = `${options.platform}:${options.page}:${options.limit}:${options.keyword}`
-  const existing = searchCache.get(key)
-  if (existing && existing.expiresAt > Date.now()) {
-    return waitForAbort(Promise.resolve(structuredClone(existing.tracks)), signal)
-  }
-  let request = pendingSearch.get(key)
-  if (!request) {
-    request = providers[options.platform]
-      .search(options.keyword, options.page, options.limit)
-      .then((tracks) => {
-        if (searchCache.size >= MAX_SEARCH_CACHE_ENTRIES && !searchCache.has(key)) {
-          searchCache.delete(searchCache.keys().next().value as string)
-        }
-        searchCache.set(key, {
-          tracks: structuredClone(tracks),
-          expiresAt: Date.now() + SEARCH_CACHE_TTL_MS
-        })
-        return tracks
-      })
-      .finally(() => pendingSearch.delete(key))
-    pendingSearch.set(key, request)
-  }
-  return waitForAbort(request.then(tracks => structuredClone(tracks)), signal)
+  return searchCache.get(
+    key,
+    async () => structuredClone(await providers[options.platform].search(
+      options.keyword,
+      options.page,
+      options.limit
+    )),
+    { signal }
+  ).then(tracks => structuredClone(tracks))
 }
-
-const searchCache = new Map<string, { expiresAt: number, tracks: MusicTrack[] }>()
-const pendingSearch = new Map<string, Promise<MusicTrack[]>>()
 
 export function clearMusicSearchCache(): void {
   searchCache.clear()
-  pendingSearch.clear()
 }
 
 export async function getMusicTracks(

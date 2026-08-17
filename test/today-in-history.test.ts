@@ -15,10 +15,12 @@ import type { Logger } from '../src/shared/logger.js'
 const fetchMocks = vi.hoisted(() => ({ safeFetch: vi.fn() }))
 vi.mock('../src/shared/safe-fetch.js', () => ({
   safeFetch: fetchMocks.safeFetch,
-  readLimitedText: (response: Response) => response.text(),
   isHostnameWithin: (hostname: string, allowed: string) => (
     hostname === allowed || hostname.endsWith(`.${allowed}`)
   )
+}))
+vi.mock('../src/shared/limited-response.js', () => ({
+  readLimitedText: (response: Response) => response.text()
 }))
 
 const token = 'today-history-token-that-is-at-least-32-characters'

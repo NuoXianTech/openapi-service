@@ -24,6 +24,19 @@ const PLATFORM_HOSTS: Record<ShortVideoPlatform, readonly string[]> = {
   pipigx: ['ippzone.com', 'pipigx.com'],
   toutiao: ['toutiao.com', 'ixigua.com']
 }
+const PLATFORM_PARSERS: Record<
+  ShortVideoPlatform,
+  (sourceUrl: URL, signal?: AbortSignal) => Promise<unknown>
+> = {
+  bilibili: parseBilibili,
+  douyin: parseDouyin,
+  kuaishou: parseKuaishou,
+  pipigx: parsePipigx,
+  pipixia: parsePipixia,
+  toutiao: parseToutiao,
+  weibo: parseWeibo,
+  xiaohongshu: parseXiaohongshu
+}
 
 export { normalizeShortVideoPayload } from './normalize.js'
 
@@ -64,32 +77,6 @@ export function detectShortVideoPlatform(url: URL): ShortVideoPlatform {
 }
 
 export async function parseShortVideo(sourceUrl: URL, platform: ShortVideoPlatform, signal?: AbortSignal): Promise<ShortVideoData> {
-  let payload: unknown
-  switch (platform) {
-    case 'douyin':
-      payload = await parseDouyin(sourceUrl, signal)
-      break
-    case 'kuaishou':
-      payload = await parseKuaishou(sourceUrl, signal)
-      break
-    case 'xiaohongshu':
-      payload = await parseXiaohongshu(sourceUrl, signal)
-      break
-    case 'bilibili':
-      payload = await parseBilibili(sourceUrl, signal)
-      break
-    case 'weibo':
-      payload = await parseWeibo(sourceUrl, signal)
-      break
-    case 'pipixia':
-      payload = await parsePipixia(sourceUrl, signal)
-      break
-    case 'pipigx':
-      payload = await parsePipigx(sourceUrl, signal)
-      break
-    case 'toutiao':
-      payload = await parseToutiao(sourceUrl, signal)
-      break
-  }
+  const payload = await PLATFORM_PARSERS[platform](sourceUrl, signal)
   return normalizeShortVideoPayload(payload, platform)
 }

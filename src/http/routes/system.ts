@@ -48,6 +48,10 @@ const unauthorizedResponse = errorResponse(
   'Service Token is missing or invalid'
 )
 
+function matchesETag(header: string | undefined, etag: string): boolean {
+  return header?.split(',').some(value => value.trim() === etag) === true
+}
+
 const healthRoute = createRoute({
   method: 'get',
   path: '/healthz',
@@ -290,11 +294,10 @@ export function registerSystemRoutes(
     c.header('cache-control', 'private, no-cache')
     c.header('vary', 'Authorization')
 
-    const knownETags = c.req
-      .header('if-none-match')
-      ?.split(',')
-      .map((value) => value.trim())
-    if (knownETags?.includes(openAPIContract.etag)) {
+    if (matchesETag(
+      c.req.header('if-none-match'),
+      openAPIContract.etag
+    )) {
       return c.body(null, 304)
     }
 
@@ -308,11 +311,9 @@ export function registerSystemRoutes(
     c.header('x-configuration-schema-sha256', sha256)
     c.header('cache-control', 'private, no-cache')
     c.header('vary', 'Authorization')
-    const knownETags = c.req
-      .header('if-none-match')
-      ?.split(',')
-      .map((value) => value.trim())
-    if (knownETags?.includes(etag)) return c.body(null, 304)
+    if (matchesETag(c.req.header('if-none-match'), etag)) {
+      return c.body(null, 304)
+    }
     return c.json(configuration.getDefinition(), 200)
   })
 

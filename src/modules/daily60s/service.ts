@@ -1,3 +1,6 @@
+import { AsyncCache } from '../../shared/async-cache.js'
+import { readLimitedText } from '../../shared/limited-response.js'
+
 const DAILY_60S_SOURCES = [
   (date: string) => `https://60s-static.viki.moe/60s/${date}.json`,
   (date: string) =>
@@ -64,12 +67,10 @@ export interface Daily60sData {
   api_updated_at: number
 }
 
-interface CacheEntry {
-  expiresAt: number
-  value: Promise<Daily60sData | null>
-}
-
-const cache = new Map<string, CacheEntry>()
+const cache = new AsyncCache<string, Daily60sData | null>({
+  ttlMs: CACHE_TTL_MS,
+  maxEntries: MAX_CACHE_ENTRIES
+})
 
 function asRecord(value: unknown): UnknownRecord {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -210,23 +211,19 @@ export function normalizeDaily60sResponse(
 }
 
 async function fetchDaily60s(
-  date: string,
-  signal?: AbortSignal
+  date: string
 ): Promise<Daily60sData | null> {
   let lastError: unknown
   let wasNotFound = false
   for (const source of DAILY_60S_SOURCES) {
     try {
-      const sourceSignal = signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(SOURCE_TIMEOUT_MS)])
-        : AbortSignal.timeout(SOURCE_TIMEOUT_MS)
       const response = await fetch(source(date), {
         headers: {
           accept: 'application/json',
           'user-agent': 'openapi-service/60s'
         },
         redirect: 'error',
-        signal: sourceSignal
+        signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS)
       })
       if (response.status === 404) {
         wasNotFound = true
@@ -237,14 +234,13 @@ async function fetchDaily60s(
         await response.body?.cancel().catch(() => undefined)
         throw new Error(`上游返回 HTTP ${response.status}`)
       }
-      const text = await readLimitedResponseText(
+      const text = await readLimitedText(
         response,
         MAX_RESPONSE_BYTES,
         '每日 60 秒上游响应过大'
       )
       return normalizeDaily60sResponse(JSON.parse(text) as unknown, date)
     } catch (error) {
-      if (signal?.aborted) throw error
       lastError = error
     }
   }
@@ -255,30 +251,11 @@ async function fetchDaily60s(
   return null
 }
 
-function trimCache(): void {
-  while (cache.size >= MAX_CACHE_ENTRIES) {
-    const oldest = cache.keys().next().value as string | undefined
-    if (!oldest) return
-    cache.delete(oldest)
-  }
-}
-
 async function getDaily60sByDate(
   date: string,
   signal?: AbortSignal
 ): Promise<Daily60sData | null> {
-  const now = Date.now()
-  const existing = cache.get(date)
-  if (existing && existing.expiresAt > now) return await existing.value
-  if (existing) cache.delete(date)
-
-  trimCache()
-  const value = fetchDaily60s(date, signal)
-  cache.set(date, { expiresAt: now + CACHE_TTL_MS, value })
-  value.catch(() => {
-    if (cache.get(date)?.value === value) cache.delete(date)
-  })
-  return await value
+  return cache.get(date, () => fetchDaily60s(date), { signal })
 }
 
 export async function getDaily60s(
@@ -329,4 +306,3 @@ export function formatDaily60sMarkdown(data: Daily60sData): string {
     : ''
   return `# 每天 60s 读懂世界\n\n> ${metadata}\n\n${news}${tip}`
 }
-import { readLimitedResponseText } from '../../shared/limited-response.js'

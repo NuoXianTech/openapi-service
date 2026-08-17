@@ -1,6 +1,6 @@
 import { load } from 'cheerio/slim'
-import { waitForAbort } from '../../shared/abort.js'
-import { readLimitedResponseText } from '../../shared/limited-response.js'
+import { AsyncCache } from '../../shared/async-cache.js'
+import { readLimitedText } from '../../shared/limited-response.js'
 import regionsJson from './regions.json' with { type: 'json' }
 
 const BASE_URL = 'http://www.qiyoujiage.com'
@@ -43,8 +43,10 @@ const regions = (regionsJson as FuelRegion[]).slice()
 const sortedRegions = regions.toSorted((first, second) => (
   first.region.length - second.region.length
 ))
-const cache = new Map<string, CacheEntry>()
-const pending = new Map<string, Promise<CacheEntry>>()
+const cache = new AsyncCache<string, CacheEntry>({
+  ttlMs: CACHE_TTL_MS,
+  maxEntries: MAX_CACHE_ENTRIES
+})
 
 export function listFuelRegions() {
   return regions.map(region => ({
@@ -123,7 +125,7 @@ async function fetchEntry(region: FuelRegion): Promise<CacheEntry> {
     await response.body?.cancel().catch(() => undefined)
     throw new Error(`油价上游返回 HTTP ${response.status}`)
   }
-  const html = await readLimitedResponseText(
+  const html = await readLimitedText(
     response,
     MAX_RESPONSE_BYTES,
     '油价上游响应过大'
@@ -143,23 +145,11 @@ async function getEntry(
   signal?: AbortSignal
 ): Promise<CacheEntry> {
   const key = region.url
-  if (forceUpdate) cache.delete(key)
-  const current = cache.get(key)
-  if (current && Date.now() - current.timestamp < CACHE_TTL_MS) {
-    return waitForAbort(Promise.resolve(current), signal)
-  }
-  let request = pending.get(key)
-  if (!request) {
-    request = fetchEntry(region).then((entry) => {
-      if (cache.size >= MAX_CACHE_ENTRIES && !cache.has(key)) {
-        cache.delete(cache.keys().next().value as string)
-      }
-      cache.set(key, entry)
-      return entry
-    }).finally(() => pending.delete(key))
-    pending.set(key, request)
-  }
-  return waitForAbort(request, signal)
+  return cache.get(
+    key,
+    () => fetchEntry(region),
+    { forceRefresh: forceUpdate, signal }
+  )
 }
 
 export async function getFuelPriceData(
@@ -180,7 +170,6 @@ export async function getFuelPriceData(
 
 export function clearFuelPriceCache(): void {
   cache.clear()
-  pending.clear()
 }
 
 export function formatFuelPriceText(data: FuelPriceData): string {

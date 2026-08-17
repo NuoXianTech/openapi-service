@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readLimitedText } from '../src/shared/limited-response.js'
 import {
   isHostnameWithin,
-  readLimitedText,
   safeFetch
 } from '../src/shared/safe-fetch.js'
 

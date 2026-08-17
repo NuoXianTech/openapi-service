@@ -83,7 +83,7 @@ export async function getKugouArtist(id: string, limit: number, signal?: AbortSi
 }
 
 export async function getKugouUrl(id: string, bitrate: number, signal?: AbortSignal): Promise<MusicResourceUrl> {
-  const configuredCookie = await getMusicPlatformCookie('kugou')
+  const configuredCookie = getMusicPlatformCookie('kugou')
   const cookie = parseCookie(configuredCookie)
   if (cookie.t && cookie.KugooID) {
     const token = cookie.t

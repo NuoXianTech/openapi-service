@@ -1,5 +1,5 @@
-import { waitForAbort } from '../../shared/abort.js'
-import { readLimitedResponseText } from '../../shared/limited-response.js'
+import { AsyncCache } from '../../shared/async-cache.js'
+import { readLimitedText } from '../../shared/limited-response.js'
 
 const PROFILE_HOST = 'api.mojang.com'
 const SESSION_HOST = 'sessionserver.mojang.com'
@@ -102,7 +102,7 @@ async function fetchJson(url: URL, source: string): Promise<{
   }
   let body: string
   try {
-    body = await readLimitedResponseText(
+    body = await readLimitedText(
       response, MAX_RESPONSE_BYTES, `${source} 返回内容无效或过大`
     )
   } catch (error) {
@@ -192,31 +192,24 @@ async function fetchProfile(identifier: string): Promise<MinecraftProfileData> {
   return normalizeSession(result.payload, uuid)
 }
 
-const cache = new Map<string, { expiresAt: number, data: MinecraftProfileData }>()
-const pending = new Map<string, Promise<MinecraftProfileData>>()
+const cache = new AsyncCache<string, MinecraftProfileData>({
+  ttlMs: CACHE_TTL_MS,
+  maxEntries: MAX_CACHE_ENTRIES
+})
 export async function getMinecraftProfile(
   identifier: string,
   signal?: AbortSignal
 ): Promise<MinecraftProfileData> {
   const key = identifier.toLowerCase()
-  const existing = cache.get(key)
-  if (existing && existing.expiresAt > Date.now()) return structuredClone(existing.data)
-  let request = pending.get(key)
-  if (!request) {
-    request = fetchProfile(identifier).then((data) => {
-      if (cache.size >= MAX_CACHE_ENTRIES && !cache.has(key)) {
-        cache.delete(cache.keys().next().value as string)
-      }
-      cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS })
-      return data
-    }).finally(() => pending.delete(key))
-    pending.set(key, request)
-  }
-  return structuredClone(await waitForAbort(request, signal))
+  const profile = await cache.get(
+    key,
+    () => fetchProfile(identifier),
+    { signal }
+  )
+  return structuredClone(profile)
 }
 export function clearMinecraftCache(): void {
   cache.clear()
-  pending.clear()
 }
 export function classifyMinecraftError(error: unknown): MinecraftFailure {
   return error instanceof MinecraftError
