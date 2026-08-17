@@ -11,7 +11,7 @@ DPlayer 1.27.2 / nuoxi4n
 /v1/player/assets/dplayer-1.27.2-nuoxi4n.min.js
 ```
 
-该文件位于 `assets/player/DPlayer.min.js`，不是 npm 官方 `dplayer` 包。
+该文件位于 `resources/player/DPlayer.min.js`，不是 npm 官方 `dplayer` 包。`resources/` 属于随源码发布的内置资源，不是 `SERVICE_DATA_DIR/assets/` 下的运维外挂目录。
 
 主要参数：`url`、`type`、`cover`、`live`、`muted`、`autoplay`、`hideplay`、`loop`、`lang` 和 `volume`。
 

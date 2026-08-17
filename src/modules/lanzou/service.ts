@@ -13,6 +13,7 @@ const DOWNLOAD_HOSTS = [
   'lanrar.com',
   'lanzoug.com',
   'baidupan.com',
+  'webgetstore.com',
   'woozooo.com',
   ...LANZOU_HOSTS
 ]
@@ -347,8 +348,28 @@ function downloadResponse(payload: unknown, usedPassword: boolean) {
   if (!url.pathname.startsWith('/file/')) {
     throw failure('upstream', 502, 'UPSTREAM_INVALID_RESPONSE', '蓝奏云返回了无效的下载地址')
   }
-  url.searchParams.delete('pid')
   return { name: text(payload.inf), url }
+}
+
+async function warmDownload(
+  initial: URL,
+  state: ChallengeState,
+  signal?: AbortSignal
+): Promise<void> {
+  try {
+    const response = await safeFetch(initial, {
+      allowedHosts: DOWNLOAD_HOSTS,
+      maxRedirects: 5,
+      headers: {
+        ...HEADERS,
+        ...(state.cookie ? { cookie: `acw_sc__v2=${state.cookie}` } : {})
+      },
+      signal: signal ?? AbortSignal.timeout(10_000)
+    })
+    await response.body?.cancel().catch(() => undefined)
+  } catch (error) {
+    if (signal?.aborted) throw error
+  }
 }
 
 async function resolveFinalDownload(
@@ -357,6 +378,8 @@ async function resolveFinalDownload(
   state: ChallengeState,
   signal?: AbortSignal
 ): Promise<URL> {
+  await warmDownload(initial, state, signal)
+  let finalUrl = new URL(initial)
   try {
     const response = await safeFetch(initial, {
       allowedHosts: DOWNLOAD_HOSTS,
@@ -376,13 +399,13 @@ async function resolveFinalDownload(
       : null
     await response.body?.cancel().catch(() => undefined)
     if (resolved) {
-      resolved.searchParams.delete('pid')
-      return resolved
+      finalUrl = resolved
     }
   } catch (error) {
     if (signal?.aborted) throw error
   }
-  return initial
+  finalUrl.searchParams.delete('pid')
+  return finalUrl
 }
 
 export async function parseLanzouFile(

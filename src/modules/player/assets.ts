@@ -8,7 +8,7 @@ interface PlayerAsset {
 }
 
 const nodeModules = resolve(packageDirectory, 'node_modules')
-const bundledAssets = resolve(packageDirectory, 'assets', 'player')
+const bundledAssets = resolve(packageDirectory, 'resources', 'player')
 const assets = new Map<string, PlayerAsset>([
   ['artplayer-5.3.0.js', {
     path: resolve(nodeModules, 'artplayer', 'dist', 'artplayer.js'),

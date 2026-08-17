@@ -13,10 +13,9 @@ pnpm check:unused
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm measure:runtime
 ```
 
-`pnpm build` 只运行 `tsc -p tsconfig.build.json` 并生成 `dist/`。`pnpm measure:runtime` 会启动编译产物，检查就绪耗时、空闲内存和 OpenAPI 契约。
+`pnpm build` 只运行 `tsc -p tsconfig.build.json` 并生成 `dist/`。
 
 生产服务器不使用 `pnpm dev` 或 `tsx watch`。推荐直接拉取 CI 已构建的镜像；服务器无需安装源码依赖，也无需执行 `pnpm build` 或 `docker build`。
 
@@ -48,6 +47,8 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ```env
 API_SERVICE_TOKEN=replace-with-an-independent-random-value
+SERVICE_ID=openapi-service
+SERVICE_NAME=OpenAPI Service
 ```
 
 生产发布时把 `docker-compose.yml` 中的镜像从 `latest` 固定到目标版本，例如 `0.1.0`。然后启动：
@@ -122,6 +123,8 @@ pnpm install --prod --frozen-lockfile
 ```bash
 export NODE_ENV=production
 export API_SERVICE_TOKEN='replace-with-an-independent-random-value'
+export SERVICE_ID='openapi-service'
+export SERVICE_NAME='OpenAPI Service'
 export SERVICE_DATA_DIR=/var/lib/openapi-service
 export LISTEN_ADDR=127.0.0.1:8080
 pnpm start

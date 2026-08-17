@@ -39,14 +39,12 @@ src/
 ├── contracts/
 ├── http/
 ├── modules/
-│   ├── yiyan/
-│   ├── player/
-│   └── ip/
+│   └── <module>/
 ├── runtime/
 ├── shared/
 └── types/
 
-assets/
+resources/
 ├── player/DPlayer.min.js
 └── yiyan/*.json
 
@@ -63,7 +61,7 @@ test/
 └── contracts/
 ```
 
-`src/app.ts` 是唯一组合根。业务模块在构建时显式注册，不扫描目录、不加载远程模块，也不接受 Platform 传入模块路径。
+`src/app.ts` 是应用组合根，`src/modules/index.ts` 是显式业务模块清单。二者都只在构建时组合已知模块，不扫描目录、不加载远程模块，也不接受 Platform 传入模块路径。
 
 目录规则保持单向且最小：
 
@@ -71,15 +69,13 @@ test/
 - `configuration/` 实现与业务无关的 Schema、快照、Revision、脱敏和持久化协议。
 - `contracts/` 是 HTTP/OpenAPI 契约，`http/` 只处理传输层、中间件与错误映射。
 - `modules/<name>/` 纵向拥有某个业务接口的 Route、业务逻辑、资产访问和可选配置声明。
-- 仓库 `assets/` 只放允许随源码分发的内置资产；`SERVICE_DATA_DIR/assets/<module-id>` 只放运维外挂且不能提交 Git 的数据。
+- 仓库 `resources/` 只放允许随源码分发的内置资源；`SERVICE_DATA_DIR/assets/<module-id>` 只放运维外挂且不能提交 Git 的数据。二者不能互相回退或覆盖。
 - `shared/` 只收纳至少已有两个生产调用方的无业务语义工具；没有第二个调用方时留在模块内。
 - 禁止新增 Repository/Provider/Adapter 基类、运行时插件注册表或依赖注入容器；只有出现真实替换需求时才引入接口。
 
 ## 4. 业务模块
 
-- `yiyan`：读取仓库内只读 JSON 数据，支持 JSON、文本、Markdown、JavaScript/JSONP 与 GBK。
-- `player`：生成 DPlayer/ArtPlayer HTML，并通过同源资产 Route 提供固定浏览器依赖。
-- `ip`：读取 Service 本地挂载的 IPv4/IPv6 CZDB，不请求第三方在线 IP 接口。
+业务模块清单不在架构文档中重复维护。当前 Endpoint 以运行时 OpenAPI 为准，面向开发者的模块说明集中在 `docs/apis/`，README 只提供导航。新增模块仍必须在 `src/modules/index.ts` 显式注册并补齐测试与接口文档。
 
 ## 5. 契约与错误
 

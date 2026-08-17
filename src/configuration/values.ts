@@ -110,6 +110,7 @@ export function normalizeConfigurationValues(
   definition: ServiceConfigurationDefinition,
   input: Record<string, unknown>,
   options: {
+    allowIncomplete?: boolean
     allowUnknown?: boolean
     baseValues?: ConfigurationValues
   } = {}
@@ -133,14 +134,19 @@ export function normalizeConfigurationValues(
     const value = Object.hasOwn(input, field.key)
       ? input[field.key]
       : baseValues[field.key] ?? defaults[field.key]
-    normalized[field.key] = normalizeFieldValue(field, value)
+    normalized[field.key] = normalizeFieldValue(
+      field,
+      value,
+      options.allowIncomplete === true
+    )
   }
   return normalized
 }
 
 function normalizeFieldValue(
   field: ConfigurationField,
-  value: unknown
+  value: unknown,
+  allowIncomplete: boolean
 ): ConfigurationValue {
   switch (field.type) {
     case 'boolean':
@@ -168,7 +174,7 @@ function normalizeFieldValue(
     case 'text':
     case 'textarea':
     case 'secret':
-      return normalizeText(field, value)
+      return normalizeText(field, value, allowIncomplete)
     case 'single-select': {
       if (typeof value !== 'string') throw invalidType(field, 'string')
       if (!field.options.some((option) => option.value === value)) {
@@ -185,7 +191,7 @@ function normalizeFieldValue(
       if (unique.some((item) => !allowed.has(item))) {
         throw invalidValue(field, 'contains an unsupported option')
       }
-      if (field.required && unique.length === 0) {
+      if (field.required && unique.length === 0 && !allowIncomplete) {
         throw invalidValue(field, 'is required')
       }
       return unique
@@ -195,9 +201,11 @@ function normalizeFieldValue(
 
 function normalizeText(
   field: Extract<ConfigurationField, { type: 'text' | 'textarea' | 'secret' }>,
-  value: unknown
+  value: unknown,
+  allowIncomplete: boolean
 ): string {
   if (typeof value !== 'string') throw invalidType(field, 'string')
+  if (value.length === 0 && allowIncomplete) return value
   if (field.required && value.length === 0) {
     throw invalidValue(field, 'is required')
   }

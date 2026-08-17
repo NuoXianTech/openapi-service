@@ -1,5 +1,4 @@
 import type { OpenAPIHono } from '@hono/zod-openapi'
-import { join } from 'node:path'
 import type { ServiceConfig } from '../config/load.js'
 import type { ServiceConfigurationManager } from '../configuration/manager.js'
 import type { ServiceConfigurationDefinition } from '../configuration/types.js'
@@ -15,15 +14,8 @@ import { registerGoldPriceRoutes } from './gold-price/routes.js'
 import { registerLanzouRoutes } from './lanzou/routes.js'
 import { registerLuckRoutes } from './luck/routes.js'
 import { registerMinecraftRoutes } from './minecraft/routes.js'
-import {
-  bindMusicConfiguration,
-  musicConfigurationGroup
-} from './music/configuration.js'
-import { registerMusicRoutes } from './music/routes.js'
-import { clearMusicSearchCache } from './music/client.js'
-import { ipConfigurationGroup } from './ip/configuration.js'
-import { registerIpRoutes } from './ip/routes.js'
-import { clearIpDatabaseCache } from './ip/service.js'
+import { ipConfigurationGroup, registerIpModule } from './ip/index.js'
+import { musicConfigurationGroup, registerMusicModule } from './music/index.js'
 import { registerPlayerRoutes } from './player/routes.js'
 import { registerPasswordCheckRoutes } from './password-check/routes.js'
 import { registerPasswordGeneratorRoutes } from './password-generator/routes.js'
@@ -64,40 +56,12 @@ export function registerServiceModules(
   registerLanzouRoutes(app)
   registerLuckRoutes(app)
   registerMinecraftRoutes(app)
-  bindMusicConfiguration(configuration)
-  registerMusicRoutes(app)
+  registerMusicModule(app, configuration)
   registerPlayerRoutes(app)
   registerPasswordCheckRoutes(app)
   registerPasswordGeneratorRoutes(app)
   registerQqAvatarRoutes(app)
   registerShortVideoRoutes(app)
   registerTodayInHistoryRoutes(app)
-  configuration.subscribe((current, previous) => {
-    if (
-      JSON.stringify(current.values['music.enabledPlatforms'])
-        !== JSON.stringify(previous.values['music.enabledPlatforms'])
-      || current.values['music.neteaseCookie']
-        !== previous.values['music.neteaseCookie']
-      || current.values['music.tencentCookie']
-        !== previous.values['music.tencentCookie']
-      || current.values['music.kugouCookie']
-        !== previous.values['music.kugouCookie']
-      || current.values['music.baiduCookie']
-        !== previous.values['music.baiduCookie']
-      || current.values['music.kuwoCookie']
-        !== previous.values['music.kuwoCookie']
-    ) {
-      clearMusicSearchCache()
-    }
-    if (
-      current.values['ip.databaseKey']
-      !== previous.values['ip.databaseKey']
-    ) {
-      clearIpDatabaseCache()
-    }
-  })
-  registerIpRoutes(app, {
-    directory: join(config.assetsDirectory, 'ip'),
-    configuration
-  })
+  registerIpModule(app, config, configuration)
 }

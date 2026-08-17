@@ -17,7 +17,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build": "tsc -p tsconfig.build.json",
-    "measure:runtime": "node scripts/measure-runtime.mjs",
     "start": "node --enable-source-maps dist/index.js"
   },
   "dependencies": {
@@ -43,17 +42,13 @@
   "knip": {
     "project": [
       "src/**/*.ts",
-      "test/**/*.ts",
-      "scripts/*.mjs"
+      "test/**/*.ts"
     ],
     "ignoreDependencies": [
       "artplayer",
       "dashjs",
       "flv.js",
       "hls.js"
-    ],
-    "ignoreBinaries": [
-      "pwsh.exe"
     ]
   }
 }

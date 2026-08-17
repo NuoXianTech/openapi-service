@@ -1,4 +1,5 @@
 import { canonicalSha256 } from '../shared/canonical-json.js'
+import { ConfigurationDefinitionSchema } from './definition-schema.js'
 import type {
   ConfigurationSnapshot,
   ConfigurationSnapshotStore,
@@ -8,6 +9,7 @@ import type {
 } from './types.js'
 import {
   assertConfigurationDefinition,
+  ConfigurationValidationError,
   normalizeConfigurationValues,
   secretConfigurationKeys
 } from './values.js'
@@ -43,16 +45,24 @@ export class ServiceConfigurationManager {
   #snapshot: ConfigurationSnapshot
 
   constructor(options: ServiceConfigurationManagerOptions) {
-    assertConfigurationDefinition(options.definition)
+    const parsed = ConfigurationDefinitionSchema.safeParse(options.definition)
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      throw new ConfigurationValidationError(
+        issue?.path.join('.') || 'definition',
+        issue?.message ?? 'invalid configuration definition'
+      )
+    }
+    assertConfigurationDefinition(parsed.data)
     this.#serviceId = options.serviceId
-    this.#definition = structuredClone(options.definition)
+    this.#definition = structuredClone(parsed.data)
     this.#schemaSha256 = canonicalSha256(this.#definition)
     this.#store = options.store
     this.#secretKeys = secretConfigurationKeys(this.#definition)
     const values = normalizeConfigurationValues(
       this.#definition,
       options.initialValues ?? {},
-      { allowUnknown: true }
+      { allowIncomplete: true, allowUnknown: true }
     )
     this.#snapshot = this.createSnapshot(0, values, null)
   }
@@ -67,7 +77,7 @@ export class ServiceConfigurationManager {
     const values = normalizeConfigurationValues(
       this.#definition,
       persisted.values,
-      { allowUnknown: true }
+      { allowIncomplete: true, allowUnknown: true }
     )
     const snapshot = this.createSnapshot(
       persisted.revision,

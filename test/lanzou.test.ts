@@ -94,6 +94,7 @@ describe('lanzou module', () => {
         zt: 1, inf: 0, dom: 'https://developer2.lanrar.com',
         url: 'signed/file-token?pid=internal&fn=avatar.txt'
       })))
+      .mockResolvedValueOnce(new Response('warmup'))
       .mockResolvedValueOnce(new Response('download'))
     vi.stubGlobal('fetch', request)
     const data = await parseLanzouFile(
@@ -103,7 +104,7 @@ describe('lanzou module', () => {
       name: '头像.txt', size: '30.2 K',
       url: 'https://developer2.lanrar.com/file/signed/file-token?fn=avatar.txt'
     })
-    expect(request).toHaveBeenCalledTimes(4)
+    expect(request).toHaveBeenCalledTimes(5)
     expect(String(request.mock.calls[0]?.[0]))
       .toBe('https://www.lanzouq.com/iGNHA6th9cd')
     expect(request.mock.calls[2]?.[1]).toMatchObject({
@@ -112,6 +113,15 @@ describe('lanzou module', () => {
     expect(String(request.mock.calls[2]?.[0])).toContain(
       '/ajaxfile.php?file=13180693'
     )
+    const temporaryUrl = 'https://developer2.lanrar.com/file/signed/file-token?pid=internal&fn=avatar.txt'
+    expect(String(request.mock.calls[3]?.[0])).toBe(temporaryUrl)
+    expect(String(request.mock.calls[4]?.[0])).toBe(temporaryUrl)
+    expect(request.mock.calls[4]?.[1]?.headers).toMatchObject({
+      cookie: 'down_ip=1'
+    })
+    expect(request.mock.calls[4]?.[1]).toMatchObject({
+      allowedHosts: expect.arrayContaining(['webgetstore.com'])
+    })
   })
 
   it('retries an arg1 challenge with the generated Cookie', async () => {
@@ -125,6 +135,7 @@ describe('lanzou module', () => {
         dom: 'https://developer2.lanrar.com',
         url: 'signed/file-token'
       })))
+      .mockResolvedValueOnce(new Response('warmup'))
       .mockResolvedValueOnce(new Response('download'))
     vi.stubGlobal('fetch', request)
 
@@ -150,6 +161,7 @@ describe('lanzou module', () => {
         dom: 'https://developer2.lanrar.com',
         url: 'fallback-token'
       })))
+      .mockResolvedValueOnce(new Response('warmup'))
       .mockResolvedValueOnce(new Response('download'))
     vi.stubGlobal('fetch', request)
 
@@ -176,6 +188,7 @@ describe('lanzou module', () => {
         dom: 'https://developer2.lanrar.com',
         url: 'query-token'
       })))
+      .mockResolvedValueOnce(new Response('warmup'))
       .mockResolvedValueOnce(new Response('download'))
     vi.stubGlobal('fetch', request)
 
@@ -226,11 +239,12 @@ describe('lanzou module', () => {
       new Response(PUBLIC_SHARE), new Response(PUBLIC_DOWNLOAD),
       new Response(JSON.stringify({
         zt: 1, inf: '头像.txt', dom: 'https://developer2.lanrar.com',
-        url: 'signed/file-token'
+        url: 'signed/file-token?pid=temporary&fn=avatar.txt'
       })),
+      new Response('warmup'),
       responseAt(
         'download',
-        'https://down-load.lanrar.com/file/final-token?pid=private&fn=avatar.txt'
+        'https://pdf2.webgetstore.com/file/final-token?pid=private&fn=avatar.txt'
       )
     ]
     const queue = responses()
@@ -245,7 +259,7 @@ describe('lanzou module', () => {
     expect(response.status).toBe(200)
     expect(body).toMatchObject({ code: 'OK', data: { name: '头像.txt' } })
     expect(body.data.url).toBe(
-      'https://down-load.lanrar.com/file/final-token?fn=avatar.txt'
+      'https://pdf2.webgetstore.com/file/final-token?fn=avatar.txt'
     )
     expect(response.headers.get('cache-control')).toBe('no-store')
 
@@ -254,7 +268,7 @@ describe('lanzou module', () => {
     const redirect = await app.request(`/v1/lanzou?url=${encoded}&type=down`, { headers })
     expect(redirect.status).toBe(302)
     expect(redirect.headers.get('location')).toBe(
-      'https://down-load.lanrar.com/file/final-token?fn=avatar.txt'
+      'https://pdf2.webgetstore.com/file/final-token?fn=avatar.txt'
     )
   })
 })

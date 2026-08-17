@@ -1,8 +1,6 @@
 import { join, resolve } from 'node:path'
 import { environmentSchema } from './schema.js'
 
-const SERVICE_ID = 'openapi-service'
-const SERVICE_NAME = 'OpenAPI Service'
 const READ_HEADER_TIMEOUT_MS = 5_000
 const REQUEST_TIMEOUT_MS = 20_000
 const SHUTDOWN_TIMEOUT_MS = 10_000
@@ -46,8 +44,8 @@ export function loadConfig(
       'runtime',
       'service-configuration.enc'
     ),
-    serviceId: SERVICE_ID,
-    serviceName: SERVICE_NAME,
+    serviceId: parsed.SERVICE_ID,
+    serviceName: parsed.SERVICE_NAME,
     version: parsed.SERVICE_VERSION
       ?? (environment.npm_package_version?.trim() || 'dev'),
     commit: parsed.SERVICE_COMMIT

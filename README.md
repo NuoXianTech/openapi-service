@@ -29,7 +29,7 @@ PUT /.well-known/configuration.json
 GET /v1/yiyan
 GET /v1/player
 GET /v1/player/art
-GET /v1/player/assets/{asset}
+GET /v1/player/assets/{asset} (support)
 GET /v1/ip
 GET /v1/60s
 GET /v1/bing
@@ -58,17 +58,6 @@ Authorization: Service <token>
 
 `/openapi.json` 提供稳定排序的 OpenAPI 3.1、`ETag` 和 `X-OpenAPI-SHA256`。
 
-## 播放器资产
-
-DPlayer 使用仓库自带的定制版本：
-
-```text
-assets/player/DPlayer.min.js
-DPlayer 1.27.2 / nuoxi4n
-```
-
-它不是 npm 官方 `dplayer` 包。ArtPlayer、HLS、FLV 和 DASH 浏览器依赖使用固定 npm 版本。Docker 镜像会把 `assets/` 一并复制到运行层。
-
 ## 本地开发
 
 ```powershell
@@ -85,7 +74,6 @@ pnpm check:unused
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm measure:runtime
 ```
 
 `pnpm build` 只执行服务端 TypeScript 编译，不运行 Nuxt、Vue 或 Vite。生产服务器优先拉取预构建镜像；非容器部署使用 GitHub Release 中已编译的 `dist/`，不在服务器重新构建源码。
@@ -135,10 +123,8 @@ pnpm measure:runtime
 - [Core-Values-Encoder](https://github.com/wTool/Core-Values-Encoder)
 - [talk-with-buddha](https://github.com/takuron/talk-with-buddha)
 - [sentences-bundle](https://github.com/hitokoto-osc/sentences-bundle)
-- [doubao-nomark](https://github.com/ihmily/doubao-nomark)
 - [60s](https://github.com/vikiboss/60s)
 - [Meting](https://github.com/metowolf/Meting)
-- [Meting-API](https://github.com/metowolf/Meting-API)
 - [short_videos](https://github.com/jiuhunwl/short_videos)
 - [60s-static-host](https://github.com/vikiboss/60s-static-host)
 - [LanzouAPI](https://github.com/hanximeng/LanzouAPI)

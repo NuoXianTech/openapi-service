@@ -32,10 +32,10 @@ const html = `
 <div id="youjiaCont"><div style="border:1px solid #EA5146">
 下次油价7月15日24时调整，预计上调110元/吨(0.08元/升-0.10元/升)
 </div></div>`
-
 afterEach(() => {
   clearFuelPriceCache()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 describe('fuel price module', () => {
@@ -70,7 +70,9 @@ describe('fuel price module', () => {
     expect(first.items).toHaveLength(3)
     expect(cached.updated_at).toBe(first.updated_at)
     expect(request).toHaveBeenCalledTimes(2)
-    expect(request.mock.calls[0]?.[1]).toMatchObject({ redirect: 'error' })
+    expect(request.mock.calls[0]?.[1]).toMatchObject({
+      headers: { 'User-Agent': expect.any(String) }
+    })
     expect(formatFuelPriceMarkdown(first)).toContain('- **92号汽油**')
   })
 

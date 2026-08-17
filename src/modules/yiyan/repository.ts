@@ -10,7 +10,7 @@ interface PickOptions {
   id?: string | null
 }
 
-const dataDirectory = resolve(packageDirectory, 'assets', 'yiyan')
+const dataDirectory = resolve(packageDirectory, 'resources', 'yiyan')
 const cache = new Map<YiyanType, Promise<YiyanSentence[]>>()
 
 async function loadSentences(type: YiyanType): Promise<YiyanSentence[]> {

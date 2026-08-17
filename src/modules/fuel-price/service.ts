@@ -117,9 +117,7 @@ export function parseFuelTrend(html: string): FuelTrend | null {
 
 async function fetchEntry(region: FuelRegion): Promise<CacheEntry> {
   const response = await fetch(`${BASE_URL}${region.url}`, {
-    headers: { 'user-agent': USER_AGENT },
-    redirect: 'error',
-    signal: AbortSignal.timeout(15_000)
+    headers: { 'User-Agent': USER_AGENT }
   })
   if (!response.ok) {
     await response.body?.cancel().catch(() => undefined)
@@ -132,7 +130,11 @@ async function fetchEntry(region: FuelRegion): Promise<CacheEntry> {
   )
   const items = parseFuelPrices(html)
   if (items.length === 0) throw new Error('油价页面结构异常，未解析到价格列表')
-  return { timestamp: Date.now(), items, trend: parseFuelTrend(html) }
+  return {
+    timestamp: Date.now(),
+    items,
+    trend: parseFuelTrend(html)
+  }
 }
 
 async function getEntry(
@@ -144,7 +146,7 @@ async function getEntry(
   if (forceUpdate) cache.delete(key)
   const current = cache.get(key)
   if (current && Date.now() - current.timestamp < CACHE_TTL_MS) {
-    return await waitForAbort(Promise.resolve(current), signal)
+    return waitForAbort(Promise.resolve(current), signal)
   }
   let request = pending.get(key)
   if (!request) {
@@ -157,7 +159,7 @@ async function getEntry(
     }).finally(() => pending.delete(key))
     pending.set(key, request)
   }
-  return await waitForAbort(request, signal)
+  return waitForAbort(request, signal)
 }
 
 export async function getFuelPriceData(

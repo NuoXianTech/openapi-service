@@ -44,14 +44,13 @@ pnpm check:unused
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm measure:runtime
 ```
 
 同时确认：
 
 - `package.json` 已更新为目标版本。
 - `.env.example` 仍只包含必要变量。
-- 新增外挂数据遵循 `assets/<module-id>` 规范。
+- 新增外挂数据遵循 `SERVICE_DATA_DIR/assets/<module-id>` 规范；允许随版本分发的内置资源放在仓库 `resources/<module-id>`。
 - OpenAPI 和配置 Schema 变更具有测试与迁移说明。
 - 删除 Endpoint 前，Platform 中已有 Route 已先停用。
 - Docker amd64/arm64 构建没有引入架构专用遗漏。

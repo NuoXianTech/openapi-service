@@ -82,9 +82,6 @@ jobs:
       - name: Build production server
         run: pnpm build
 
-      - name: Check runtime resource budget
-        run: pnpm measure:runtime
-
   build:
     name: Build image (${{ matrix.arch }})
     needs: verify

@@ -11,6 +11,8 @@
 只包含进程启动所需的最小边界：
 
 - `API_SERVICE_TOKEN`
+- `SERVICE_ID`
+- `SERVICE_NAME`
 - `LISTEN_ADDR`
 - `SERVICE_DATA_DIR`
 - 网络、TLS、反向代理和容器资源限制
@@ -68,9 +70,9 @@ Authorization: Service <token>
 
 ```text
 ip.databaseKey
-music.netease.enabled
-music.netease.cookie
-crypto.enabledAlgorithms
+music.enabledPlatforms
+music.neteaseCookie
+crypto.allowedAlgorithms
 ```
 
 示例定义：
@@ -84,16 +86,19 @@ export const serviceConfigurationDefinition = {
       label: '音乐解析',
       fields: [
         {
-          key: 'music.netease.enabled',
-          type: 'boolean',
-          label: '启用网易云音乐',
-          default: true
+          key: 'music.enabledPlatforms',
+          type: 'multi-select',
+          label: '可用音乐平台',
+          default: ['netease'],
+          options: [
+            { value: 'netease', label: '网易云音乐' }
+          ]
         },
         {
-          key: 'music.netease.cookie',
+          key: 'music.neteaseCookie',
           type: 'secret',
           label: '网易云 Cookie',
-          maxLength: 16_384
+          maxLength: 12_000
         }
       ]
     }
@@ -102,6 +107,11 @@ export const serviceConfigurationDefinition = {
 ```
 
 Platform 只根据字段类型渲染控件。新增音乐来源或算法时，只修改 Service 定义并重新发布 Service；Platform 不增加业务专用页面或字段分支。
+
+Revision `0` 是尚未由 Platform 保存的引导状态。Service 允许必填文本、Secret
+或多选字段在该状态暂时为空，以保证控制端点可以启动并被发现；Platform
+提交正式 Revision 时会严格执行 `required`、长度、范围和选项校验。依赖未配置
+字段的业务模块应返回稳定 `503`，不能阻止其他模块和控制面启动。
 
 ## 4. 在 Service 中增加字段
 
@@ -118,7 +128,7 @@ Platform 只根据字段类型渲染控件。新增音乐来源或算法时，�
 - 数据库文件固定来自 `assets/ip/`。
 - 保存配置后，IP 数据库读取器在当前 Service 进程内更新，不要求重启。
 
-模块 Route 与配置组必须继续在 `src/modules/index.ts` 显式组合。禁止目录扫描、运行时业务模块加载或 Platform 下发模块路径。
+模块 Route 与配置组必须继续在 `src/modules/index.ts` 显式组合。需要订阅配置或清理模块缓存时，由模块自己的 `index.ts` 封装，组合根不理解具体字段。禁止目录扫描、运行时业务模块加载或 Platform 下发模块路径。
 
 ## 5. Revision 与多 Target
 
@@ -131,7 +141,9 @@ Platform 是期望状态源：
 5. Platform 分别记录每个 Target 的 `synced`、`drifted`、`error` 或 `unknown` 状态。
 6. 部分 Target 失败时，期望状态仍保留，管理员可在修复 Target 后执行“同步全部 Target”。
 
-同一 Internal Upstream 的 Target 必须暴露相同的 `serviceId`、OpenAPI 指纹和配置 Schema 指纹。不同契约应创建不同 Upstream。
+同一 Internal Upstream 的 Target 必须暴露相同的 `serviceId`、Service 名称、OpenAPI 指纹和配置 Schema 指纹。不同契约应创建不同 Upstream。
+
+`SERVICE_ID` 是上述 `serviceId` 的部署值，不是实例编号。滚动部署中的 `3001`、`3002` 等副本必须使用相同值；不要把端口、主机名或容器编号拼入 `SERVICE_ID`。
 
 ## 6. Secret
 

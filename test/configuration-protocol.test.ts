@@ -63,6 +63,69 @@ describe('service configuration protocol', () => {
       serviceId: config.serviceId,
       definition: duplicate
     })).toThrow(/duplicate configuration field/)
+
+    const invalid = {
+      schemaVersion: 1,
+      groups: [{
+        key: 'Invalid Key',
+        label: 'Invalid',
+        fields: [{
+          key: 'also invalid',
+          type: 'boolean',
+          label: '',
+          default: false
+        }]
+      }]
+    }
+    expect(() => new ServiceConfigurationManager({
+      serviceId: config.serviceId,
+      definition: invalid as unknown as ServiceConfigurationDefinition
+    })).toThrow()
+  })
+
+  it('boots with incomplete required values but enforces them on apply', async () => {
+    const definition = {
+      schemaVersion: 1,
+      groups: [{
+        key: 'source',
+        label: 'Source',
+        fields: [{
+          key: 'source.token',
+          type: 'secret',
+          label: 'Token',
+          required: true
+        }, {
+          key: 'source.regions',
+          type: 'multi-select',
+          label: 'Regions',
+          required: true,
+          default: [],
+          options: [{ label: 'China', value: 'cn' }]
+        }]
+      }]
+    } as const satisfies ServiceConfigurationDefinition
+    const manager = new ServiceConfigurationManager({
+      serviceId: config.serviceId,
+      definition
+    })
+
+    expect(manager.getRedactedState().values['source.token'])
+      .toEqual({ configured: false })
+    await expect(manager.apply(1, {
+      'source.token': '',
+      'source.regions': []
+    }))
+      .rejects.toThrow('source.token is required')
+    await expect(manager.apply(1, {
+      'source.token': 'configured',
+      'source.regions': []
+    }))
+      .rejects.toThrow('source.regions is required')
+    await expect(manager.apply(1, {
+      'source.token': 'configured',
+      'source.regions': ['cn']
+    }))
+      .resolves.toMatchObject({ revision: 1 })
   })
 
   it('exposes a declarative schema and never reads a secret back', async () => {

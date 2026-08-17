@@ -28,8 +28,11 @@ const silentLogger: Logger = {
   error() {}
 }
 
-function createTestApp() {
-  return createApp({ config, logger: silentLogger })
+function createTestApp(overrides: Partial<ServiceConfig> = {}) {
+  return createApp({
+    config: { ...config, ...overrides },
+    logger: silentLogger
+  })
 }
 
 describe('system routes', () => {
@@ -142,6 +145,18 @@ describe('system routes', () => {
     )
     expect(description.serviceId).toBe(config.serviceId)
     expect(description.configuration.schemaSha256).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it('keeps the OpenAPI fingerprint stable across Service releases', async () => {
+    const headers = { authorization: 'Service ' + currentToken }
+    const first = await createTestApp({ version: '0.1.0' })
+      .request('/openapi.json', { headers })
+    const second = await createTestApp({ version: '0.1.1' })
+      .request('/openapi.json', { headers })
+
+    expect(first.headers.get('x-openapi-sha256')).toBe(
+      second.headers.get('x-openapi-sha256')
+    )
   })
 
   it('returns 304 when Platform already has the current contract', async () => {

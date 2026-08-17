@@ -15,7 +15,10 @@ import {
   ConfigurationUpdateRequestSchema,
   ConfigurationUpdateResponseSchema
 } from '../../contracts/configuration.js'
-import { createOpenAPIContract } from '../../contracts/openapi.js'
+import {
+  createOpenAPIContract,
+  SERVICE_OPENAPI_VERSION
+} from '../../contracts/openapi.js'
 import {
   ContractFingerprintHeadersSchema,
   ErrorResponseSchema,
@@ -231,7 +234,7 @@ export function registerSystemRoutes(
         openapi: '3.1.0',
         info: {
           title: config.serviceName,
-          version: config.version,
+          version: SERVICE_OPENAPI_VERSION,
           description:
             'Independent business API upstream for OpenAPI Platform'
         }

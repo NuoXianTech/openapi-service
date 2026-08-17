@@ -8,7 +8,6 @@ pnpm check:unused
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm measure:runtime
 ```
 
 ## 2. 变更归属

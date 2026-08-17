@@ -46,6 +46,24 @@ describe('loadConfig', () => {
     )
   })
 
+  it('accepts a deployment-defined stable identity and display name', () => {
+    const config = loadConfig({
+      API_SERVICE_TOKEN: currentToken,
+      SERVICE_ID: 'example.weather-service',
+      SERVICE_NAME: 'Example Weather Service'
+    })
+
+    expect(config.serviceId).toBe('example.weather-service')
+    expect(config.serviceName).toBe('Example Weather Service')
+  })
+
+  it('rejects an invalid Service identity', () => {
+    expect(() => loadConfig({
+      API_SERVICE_TOKEN: currentToken,
+      SERVICE_ID: 'Invalid Service ID'
+    })).toThrow()
+  })
+
   it('uses package metadata for a prebuilt pnpm start', () => {
     const config = loadConfig({
       API_SERVICE_TOKEN: currentToken,
