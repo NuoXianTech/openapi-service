@@ -242,7 +242,7 @@ describe('CZDB IP lookup', () => {
   })
 
   it('fails safely for missing configuration, bad keys and expired files', async () => {
-    await expect(lookupIpLocation('8.8.8.8', ''))
+    await expect(lookupIpLocation('8.8.8.8', '', 'unused'))
       .rejects.toMatchObject({ code: 'IP_DATABASE_NOT_CONFIGURED' } satisfies Partial<IpLookupError>)
 
     const directory = await createFixtureDirectory({ version: 4, key, raw: '测试', expired: true })

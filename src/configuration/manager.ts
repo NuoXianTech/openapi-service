@@ -39,6 +39,7 @@ export class ServiceConfigurationManager {
     current: ConfigurationSnapshot,
     previous: ConfigurationSnapshot
   ) => void>()
+  #applyTail: Promise<void> = Promise.resolve()
   #snapshot: ConfigurationSnapshot
 
   constructor(options: ServiceConfigurationManagerOptions) {
@@ -133,6 +134,21 @@ export class ServiceConfigurationManager {
   }
 
   async apply(
+    revision: number,
+    input: Record<string, unknown>
+  ): Promise<ConfigurationSnapshot> {
+    const values = structuredClone(input)
+    const operation = this.#applyTail.then(() => (
+      this.applySerially(revision, values)
+    ))
+    this.#applyTail = operation.then(
+      () => undefined,
+      () => undefined
+    )
+    return operation
+  }
+
+  private async applySerially(
     revision: number,
     input: Record<string, unknown>
   ): Promise<ConfigurationSnapshot> {

@@ -1,13 +1,14 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { packageDirectory } from '../../shared/paths.js'
 
 interface PlayerAsset {
   path: string
   contentType: string
 }
 
-const nodeModules = resolve(process.cwd(), 'node_modules')
-const bundledAssets = resolve(process.cwd(), 'assets', 'player')
+const nodeModules = resolve(packageDirectory, 'node_modules')
+const bundledAssets = resolve(packageDirectory, 'assets', 'player')
 const assets = new Map<string, PlayerAsset>([
   ['artplayer-5.3.0.js', {
     path: resolve(nodeModules, 'artplayer', 'dist', 'artplayer.js'),
@@ -30,6 +31,19 @@ const assets = new Map<string, PlayerAsset>([
     contentType: 'application/javascript; charset=utf-8'
   }]
 ])
+const assetBodies = new Map<string, Promise<Uint8Array<ArrayBuffer>>>()
+
+function readAssetBody(name: string, path: string) {
+  let pending = assetBodies.get(name)
+  if (!pending) {
+    pending = readFile(path).then((body) => Uint8Array.from(body))
+    assetBodies.set(name, pending)
+    pending.catch(() => {
+      if (assetBodies.get(name) === pending) assetBodies.delete(name)
+    })
+  }
+  return pending
+}
 
 export async function readPlayerAsset(name: string): Promise<{
   body: Uint8Array<ArrayBuffer>
@@ -38,7 +52,7 @@ export async function readPlayerAsset(name: string): Promise<{
   const asset = assets.get(name)
   if (!asset) return null
   return {
-    body: Uint8Array.from(await readFile(asset.path)),
+    body: await readAssetBody(name, asset.path),
     contentType: asset.contentType
   }
 }

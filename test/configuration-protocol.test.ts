@@ -1,13 +1,17 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../src/app.js'
 import type { ServiceConfig } from '../src/config/load.js'
 import { serviceConfigurationDefinition } from '../src/modules/index.js'
 import { EncryptedConfigurationFileStore } from '../src/configuration/file-store.js'
 import { ServiceConfigurationManager } from '../src/configuration/manager.js'
-import type { ServiceConfigurationDefinition } from '../src/configuration/types.js'
+import type {
+  ConfigurationSnapshotStore,
+  PersistedConfigurationSnapshot,
+  ServiceConfigurationDefinition
+} from '../src/configuration/types.js'
 import { ConfigurationDefinitionSchema } from '../src/contracts/configuration.js'
 import type { Logger } from '../src/shared/logger.js'
 
@@ -150,6 +154,53 @@ describe('service configuration protocol', () => {
     expect(await conflict.json()).toMatchObject({
       code: 'CONFIGURATION_REVISION_CONFLICT',
       data: { currentRevision: 1 }
+    })
+  })
+
+  it('serializes concurrent revisions so an older save cannot overwrite a newer one', async () => {
+    let releaseFirstSave: (() => void) | undefined
+    const firstSaveBlocked = new Promise<void>((resolve) => {
+      releaseFirstSave = resolve
+    })
+    const savedRevisions: number[] = []
+    const store: ConfigurationSnapshotStore = {
+      async load() {
+        return null
+      },
+      async save(snapshot: PersistedConfigurationSnapshot) {
+        savedRevisions.push(snapshot.revision)
+        if (snapshot.revision === 1) await firstSaveBlocked
+      }
+    }
+    const manager = new ServiceConfigurationManager({
+      serviceId: config.serviceId,
+      definition: serviceConfigurationDefinition,
+      store
+    })
+
+    const first = manager.apply(1, {
+      'ip.enabled': true,
+      'ip.databaseKey': 'revision-one'
+    })
+    await vi.waitFor(() => expect(savedRevisions).toEqual([1]))
+    const second = manager.apply(2, {
+      'ip.enabled': false,
+      'ip.databaseKey': 'revision-two'
+    })
+
+    expect(savedRevisions).toEqual([1])
+    releaseFirstSave?.()
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      expect.objectContaining({ revision: 1 }),
+      expect.objectContaining({ revision: 2 })
+    ])
+    expect(savedRevisions).toEqual([1, 2])
+    expect(manager.getSnapshot()).toMatchObject({
+      revision: 2,
+      values: {
+        'ip.enabled': false,
+        'ip.databaseKey': 'revision-two'
+      }
     })
   })
 

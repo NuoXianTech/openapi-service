@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { packageDirectory } from '../../shared/paths.js'
 import type { YiyanSentence, YiyanType } from './types.js'
 
 interface PickOptions {
@@ -9,7 +10,7 @@ interface PickOptions {
   id?: string | null
 }
 
-const dataDirectory = resolve(process.cwd(), 'assets', 'yiyan')
+const dataDirectory = resolve(packageDirectory, 'assets', 'yiyan')
 const cache = new Map<YiyanType, Promise<YiyanSentence[]>>()
 
 async function loadSentences(type: YiyanType): Promise<YiyanSentence[]> {

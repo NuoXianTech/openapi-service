@@ -89,7 +89,7 @@ export function clearIpDatabaseCache(): void {
 export async function lookupIpLocation(
   ip: string,
   key: string,
-  directory = resolve(process.cwd(), 'data', 'ip')
+  directory: string
 ): Promise<IpLocationData | null> {
   const version = isIP(ip)
   if (version !== 4 && version !== 6) throw new TypeError('Invalid IP address')
