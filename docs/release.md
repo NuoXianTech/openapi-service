@@ -16,9 +16,9 @@ Git Tag 必须去掉 `v` 后与 `package.json` 版本一致，指向已经进入
 
 仓库包含三条明确流水线：
 
-- `ci.yml`：Pull Request 和 `main` 的未使用代码检查、类型检查、测试、构建和运行资源预算。
+- `ci.yml`：Pull Request 和 `main` 的未使用代码检查、类型检查、测试和构建。
 - `docker-publish.yml`：为 `main` 与版本 Tag 构建 amd64/arm64 镜像并合并多架构清单。
-- `release.yml`：校验版本 Tag，重复执行发布门禁，生成预编译压缩包、校验和、Release Notes 和 GitHub Release。
+- `release.yml`：校验版本 Tag，重复执行发布门禁，生成并校验预编译压缩包与 SHA-256，再创建 Release Notes 和 GitHub Release。
 
 GitHub Release 与容器镜像工作流都会由版本 Tag 触发。两条工作流都成功后，该版本才算发布完成。临时基础设施故障可以在 GitHub Actions 中重跑原工作流；若失败来自源码、版本或产物缺陷，应修复后发布新的 patch 版本，不能移动已经公开的 Tag。
 
@@ -31,7 +31,7 @@ GitHub Release 与容器镜像工作流都会由版本 Tag 触发。两条工作
 - 根包明确声明 MIT。
 - 锁文件必须提交并由依赖更新 PR 审查。
 - 引入具有特殊许可、数据授权或再分发限制的依赖与资产时，在模块文档和 Release Review 中单独记录。
-- CI 继续执行死代码检查、类型检查、测试、构建和运行资源预算。
+- CI 继续执行死代码检查、类型检查、测试和构建。
 
 如果未来组织确实需要自动化合规，应接入能处理 SPDX 表达式和人工批准记录的正式工具，而不是恢复简单字符串白名单。
 
@@ -67,6 +67,8 @@ git switch -c release/v0.1.0
 ```
 
 更新版本、文档和 Release Notes，完成审查后合并到 `main`。重新同步并确认本地与远端一致：
+
+CI 只允许 `release/v<目标版本>` 分支修改根包版本，避免普通功能 PR 意外推进发布版本。
 
 ```bash
 git switch main

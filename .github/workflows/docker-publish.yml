@@ -21,7 +21,6 @@ env:
 jobs:
   verify:
     name: Verify source
-    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -31,6 +30,19 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Validate manual publish ref
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF" in
+            refs/heads/main|refs/tags/v*) ;;
+            *)
+              echo "Container publishing can only be dispatched from main or a version tag." >&2
+              exit 1
+              ;;
+          esac
 
       - name: Verify version tag
         if: startsWith(github.ref, 'refs/tags/')
@@ -230,7 +242,7 @@ jobs:
         uses: dataaxiom/ghcr-cleanup-action@v1.2.2
         with:
           owner: ${{ github.repository_owner }}
-          package: openapi-service
+          package: ${{ github.event.repository.name }}
           delete-untagged: 'true'
           delete-tags: 'sha-*'
           validate: 'true'

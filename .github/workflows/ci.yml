@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -23,7 +24,29 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Validate version change
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          base_version="$(git show "${BASE_SHA}:package.json" | python -c 'import json, sys; print(json.load(sys.stdin)["version"])')"
+          head_version="$(node -p "require('./package.json').version")"
+
+          if [[ "$base_version" == "$head_version" ]]; then
+            exit 0
+          fi
+
+          expected_branch="release/v${head_version}"
+          if [[ "$HEAD_BRANCH" != "$expected_branch" ]]; then
+            echo "Version changes must come from branch ${expected_branch}, not ${HEAD_BRANCH}." >&2
+            exit 1
+          fi
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v5

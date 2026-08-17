@@ -88,6 +88,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.number }}
         run: |
+          set -euo pipefail
           package_name="openapi-service-${VERSION}"
           package_dir="${RUNNER_TEMP}/${package_name}"
           mkdir -p "$package_dir" release
@@ -104,11 +105,34 @@ jobs:
             sha256sum "${package_name}.tar.gz" > checksums.txt
           )
 
+      - name: Verify release package
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.number }}
+        run: |
+          set -euo pipefail
+          package_name="openapi-service-${VERSION}"
+          archive_name="${package_name}.tar.gz"
+          contents_file="${RUNNER_TEMP}/${package_name}-contents.txt"
+
+          tar -tzf "release/${archive_name}" > "$contents_file"
+          grep -Fxq "${package_name}/dist/index.js" "$contents_file"
+          grep -Fxq "${package_name}/resources/" "$contents_file"
+          grep -Fxq "${package_name}/package.json" "$contents_file"
+          grep -Fxq "${package_name}/pnpm-lock.yaml" "$contents_file"
+          grep -Fxq "${package_name}/docker-compose.yml" "$contents_file"
+          grep -Fxq "${package_name}/.env.example" "$contents_file"
+          (
+            cd release
+            sha256sum --check checksums.txt
+          )
+
       - name: Generate release notes
         shell: bash
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          set -euo pipefail
           previous_tag="$(git describe --tags --abbrev=0 "${RELEASE_TAG}^" 2>/dev/null || true)"
           if [[ -n "$previous_tag" ]]; then
             commit_range="${previous_tag}..${RELEASE_TAG}"
