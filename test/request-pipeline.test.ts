@@ -1,9 +1,9 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../src/app.js'
-import type { ServiceConfig } from '../src/config/load.js'
+import type { ServiceConfig } from '../src/config.js'
 import type { Logger } from '../src/shared/logger.js'
-import { RuntimeState } from '../src/runtime/state.js'
+import { RuntimeState } from '../src/runtime-state.js'
 
 const serviceToken = 'pipeline-token-that-is-at-least-32-characters'
 

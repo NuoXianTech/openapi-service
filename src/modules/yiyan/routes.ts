@@ -8,7 +8,7 @@ import {
   ApiErrorResponseSchema,
   createSuccessEnvelopeSchema
 } from '../../shared/openapi.js'
-import type { AppEnv } from '../../types/app.js'
+import type { AppEnv } from '../../http/types.js'
 import {
   encodeYiyanBody,
   formatYiyanJavaScript,

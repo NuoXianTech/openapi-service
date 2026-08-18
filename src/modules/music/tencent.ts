@@ -1,13 +1,11 @@
 import { buildUrl, isRecord, mergeCookieHeader, normalizeCollection, parseJsonResponseText, readNumber, readPath, readString, requestJson, requestText, type UnknownRecord } from './common.js'
-import type { MusicLyrics, MusicResourceUrl, MusicTrack } from './types.js'
-import { getMusicPlatformCookie } from './configuration.js'
+import type { MusicLyrics, MusicProviderRequestOptions, MusicResourceUrl, MusicTrack } from './types.js'
 
 const DEFAULT_COOKIE = 'pgv_pvi=22038528; pgv_si=s3156287488; yplayer_open=1; qqmusic_fromtag=66; player_exist=1'
 const BASE_HEADERS = { 'referer': 'https://y.qq.com', 'user-agent': 'QQMusic/54409 CFNetwork/901.1 Darwin/17.6.0', 'accept': '*/*' }
 const API = 'https://c.y.qq.com'
 
-function createHeaders(): Record<string, string> {
-  const cookie = getMusicPlatformCookie('tencent')
+function createHeaders(cookie = ''): Record<string, string> {
   return { ...BASE_HEADERS, cookie: mergeCookieHeader(DEFAULT_COOKIE, cookie) }
 }
 
@@ -31,16 +29,17 @@ function assertTencentSuccess(payload: unknown): void {
   throw new Error(`QQ 音乐上游返回业务错误（code=${code}${message ? `, ${message}` : ''}）`)
 }
 
-async function get(path: string, params: Record<string, string | number>, signal?: AbortSignal): Promise<unknown> {
+async function get(path: string, params: Record<string, string | number>, signal?: AbortSignal, cookie = ''): Promise<unknown> {
   const payload = await requestJson(buildUrl(path.startsWith('http') ? path : `${API}${path}`, params), {
-    headers: createHeaders(),
+    headers: createHeaders(cookie),
     signal
   })
   assertTencentSuccess(payload)
   return payload
 }
 
-export async function searchTencent(keyword: string, page: number, limit: number, signal?: AbortSignal): Promise<MusicTrack[]> {
+export async function searchTencent(keyword: string, page: number, limit: number, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal, cookie = '' } = options
   const data = await get('/soso/fcgi-bin/client_search_cp', {
     format: 'json',
     p: page,
@@ -50,7 +49,7 @@ export async function searchTencent(keyword: string, page: number, limit: number
     lossless: 1,
     cr: 1,
     new_json: 1
-  }, signal)
+  }, signal, cookie)
   if (!isRecord(data)) throw new Error('QQ 音乐搜索上游返回了无效数据')
 
   const subcode = readNumber(data.subcode)
@@ -65,25 +64,27 @@ export async function searchTencent(keyword: string, page: number, limit: number
   return normalizeCollection(data, 'data.song.list', normalizeTencent)
 }
 
-export async function getTencentTracks(operation: 'song' | 'album' | 'playlist', id: string, signal?: AbortSignal): Promise<MusicTrack[]> {
+export async function getTencentTracks(operation: 'song' | 'album' | 'playlist', id: string, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal, cookie = '' } = options
   const requests = {
     song: ['/v8/fcg-bin/fcg_play_single_song.fcg', { songmid: id, platform: 'yqq', format: 'json' }, 'data'],
     album: ['/v8/fcg-bin/fcg_v8_album_detail_cp.fcg', { albummid: id, platform: 'mac', format: 'json', newsong: 1 }, 'data.getSongInfo'],
     playlist: ['/v8/fcg-bin/fcg_v8_playlist_cp.fcg', { id, format: 'json', newsong: 1, platform: 'jqspaframe.json' }, 'data.cdlist.0.songlist']
   } satisfies Record<string, [string, Record<string, string | number>, string]>
   const [path, params, resultPath] = requests[operation]
-  return normalizeCollection(await get(path, params, signal), resultPath, normalizeTencent)
+  return normalizeCollection(await get(path, params, signal, cookie), resultPath, normalizeTencent)
 }
 
-export async function getTencentArtist(id: string, limit: number, signal?: AbortSignal): Promise<MusicTrack[]> {
-  const data = await get('/v8/fcg-bin/fcg_v8_singer_track_cp.fcg', { singermid: id, begin: 0, num: limit, order: 'listen', platform: 'mac', newsong: 1 }, signal)
+export async function getTencentArtist(id: string, limit: number, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal, cookie = '' } = options
+  const data = await get('/v8/fcg-bin/fcg_v8_singer_track_cp.fcg', { singermid: id, begin: 0, num: limit, order: 'listen', platform: 'mac', newsong: 1 }, signal, cookie)
   return normalizeCollection(data, 'data.list', normalizeTencent)
 }
 
-export async function getTencentUrl(id: string, bitrate: number, signal?: AbortSignal): Promise<MusicResourceUrl> {
-  const cookie = getMusicPlatformCookie('tencent')
+export async function getTencentUrl(id: string, bitrate: number, options: MusicProviderRequestOptions = {}): Promise<MusicResourceUrl> {
+  const { signal, cookie = '' } = options
   const uin = /(?:^|;\s*)uin=o?(\d+)/.exec(cookie)?.[1] || '0'
-  const songPayload = await get('/v8/fcg-bin/fcg_play_single_song.fcg', { songmid: id, platform: 'yqq', format: 'json' }, signal)
+  const songPayload = await get('/v8/fcg-bin/fcg_play_single_song.fcg', { songmid: id, platform: 'yqq', format: 'json' }, signal, cookie)
   const song = readPath(songPayload, 'data.0')
   if (!isRecord(song) || !isRecord(song.file)) return { url: '', size: 0, br: -1 }
   const file = song.file
@@ -95,7 +96,7 @@ export async function getTencentUrl(id: string, bitrate: number, signal?: AbortS
   const available = quality.filter(([sizeKey, br]) => readNumber(file[sizeKey]) > 0 && br <= bitrate)
   const filenames = quality.map(([, , prefix, extension]) => `${prefix}${mediaId}.${extension}`)
   const payload = { req_0: { module: 'vkey.GetVkeyServer', method: 'CgiGetVkey', param: { guid: String(Math.floor(Math.random() * 10_000_000_000)), songmid: quality.map(() => id), filename: filenames, songtype: quality.map(() => readNumber(song.type)), uin, loginflag: 1, platform: '20' } } }
-  const response = await get('https://u.y.qq.com/cgi-bin/musicu.fcg', { format: 'json', platform: 'yqq.json', needNewCode: 0, data: JSON.stringify(payload) }, signal)
+  const response = await get('https://u.y.qq.com/cgi-bin/musicu.fcg', { format: 'json', platform: 'yqq.json', needNewCode: 0, data: JSON.stringify(payload) }, signal, cookie)
   const infos = readPath(response, 'req_0.data.midurlinfo')
   const sip = readPath(response, 'req_0.data.sip.0')
   if (!Array.isArray(infos) || typeof sip !== 'string') return { url: '', size: 0, br: -1 }
@@ -114,9 +115,10 @@ function decodeEntities(value: string): string {
     .replace(/&#x([\da-f]+);/gi, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
 }
 
-export async function getTencentLyrics(id: string, signal?: AbortSignal): Promise<MusicLyrics> {
+export async function getTencentLyrics(id: string, options: MusicProviderRequestOptions = {}): Promise<MusicLyrics> {
+  const { signal, cookie = '' } = options
   const text = await requestText(buildUrl(`${API}/lyric/fcgi-bin/fcg_query_lyric_new.fcg`, { songmid: id, g_tk: '5381' }), {
-    headers: createHeaders(),
+    headers: createHeaders(cookie),
     signal
   })
   const payload = parseJsonResponseText(text) as UnknownRecord

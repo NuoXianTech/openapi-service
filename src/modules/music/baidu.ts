@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import { buildUrl, isRecord, normalizeCollection, readNumber, readPath, readString, requestJson, requestText } from './common.js'
-import type { MusicLyrics, MusicResourceUrl, MusicTrack } from './types.js'
-import { getMusicPlatformCookie } from './configuration.js'
+import type { MusicLyrics, MusicProviderRequestOptions, MusicResourceUrl, MusicTrack } from './types.js'
 
 // `baidu` is kept as the public server code for backward compatibility. The
 // original Taihe/Baidu Ting API is gone; current Qianqian endpoints live here.
@@ -19,8 +18,7 @@ interface QianqianTrackDefaults {
   artists?: string[]
 }
 
-function createHeaders(): Record<string, string> {
-  const cookie = getMusicPlatformCookie('baidu')
+function createHeaders(cookie = ''): Record<string, string> {
   return cookie ? { ...BASE_HEADERS, cookie } : BASE_HEADERS
 }
 
@@ -42,9 +40,10 @@ async function requestQianqian(
   path: string,
   params: Record<string, string | number>,
   signal?: AbortSignal,
-  allowEmpty = false
+  allowEmpty = false,
+  cookie = ''
 ): Promise<unknown> {
-  const payload = await requestJson(createSignedUrl(path, params), { headers: createHeaders(), signal })
+  const payload = await requestJson(createSignedUrl(path, params), { headers: createHeaders(cookie), signal })
   if (!isRecord(payload)) throw new Error('千千音乐上游返回了无效数据')
 
   const errno = readNumber(payload.errno)
@@ -86,11 +85,11 @@ function normalizeQianqianTracks(payload: unknown, path: string, defaults: Qianq
   return normalizeCollection(payload, path, value => normalizeQianqian(value, defaults))
 }
 
-async function resolveAlbumAssetCode(id: string, signal?: AbortSignal): Promise<string> {
+async function resolveAlbumAssetCode(id: string, signal?: AbortSignal, cookie = ''): Promise<string> {
   const value = id.trim()
   if (/^P[A-Za-z0-9]+$/i.test(value)) return `P${value.slice(1)}`
 
-  const payload = await requestQianqian('album/albumid2psid', { albumid: value }, signal, true)
+  const payload = await requestQianqian('album/albumid2psid', { albumid: value }, signal, true, cookie)
   const values = readPath(payload, 'data')
   if (!Array.isArray(values)) return ''
   for (const item of values) {
@@ -101,26 +100,28 @@ async function resolveAlbumAssetCode(id: string, signal?: AbortSignal): Promise<
   return ''
 }
 
-export async function searchBaidu(keyword: string, page: number, limit: number, signal?: AbortSignal): Promise<MusicTrack[]> {
+export async function searchBaidu(keyword: string, page: number, limit: number, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal, cookie = '' } = options
   const payload = await requestQianqian('search', {
     word: keyword,
     type: 1,
     pageNo: page,
     pageSize: limit
-  }, signal, true)
+  }, signal, true, cookie)
   return normalizeQianqianTracks(payload, 'data.typeTrack')
 }
 
-export async function getBaiduTracks(operation: 'song' | 'album' | 'playlist', id: string, signal?: AbortSignal): Promise<MusicTrack[]> {
+export async function getBaiduTracks(operation: 'song' | 'album' | 'playlist', id: string, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal, cookie = '' } = options
   if (operation === 'song') {
-    const payload = await requestQianqian('song/info', { TSID: id }, signal, true)
+    const payload = await requestQianqian('song/info', { TSID: id }, signal, true, cookie)
     return normalizeQianqianTracks(payload, 'data')
   }
 
   if (operation === 'album') {
-    const albumAssetCode = await resolveAlbumAssetCode(id, signal)
+    const albumAssetCode = await resolveAlbumAssetCode(id, signal, cookie)
     if (!albumAssetCode) return []
-    const payload = await requestQianqian('album/info', { albumAssetCode }, signal, true)
+    const payload = await requestQianqian('album/info', { albumAssetCode }, signal, true, cookie)
     const album = readPath(payload, 'data')
     if (!isRecord(album)) return []
     return normalizeQianqianTracks(album, 'trackList', {
@@ -129,11 +130,11 @@ export async function getBaiduTracks(operation: 'song' | 'album' | 'playlist', i
     })
   }
 
-  const payload = await requestQianqian('tracklist/info', { id, type: 0 }, signal, true)
+  const payload = await requestQianqian('tracklist/info', { id, type: 0 }, signal, true, cookie)
   return normalizeQianqianTracks(payload, 'data.trackList')
 }
 
-export async function getBaiduArtist(_id: string, _limit: number, _signal?: AbortSignal): Promise<MusicTrack[]> {
+export async function getBaiduArtist(_id: string, _limit: number, _options?: MusicProviderRequestOptions): Promise<MusicTrack[]> {
   // The current Qianqian API exposed by music.91q.com has no matching
   // artist-song endpoint. Keep the common contract stable and report no data.
   return []
@@ -146,10 +147,11 @@ function qianqianQualityRates(bitrate: number): string[] {
   return ['64']
 }
 
-export async function getBaiduUrl(id: string, bitrate: number, signal?: AbortSignal): Promise<MusicResourceUrl> {
+export async function getBaiduUrl(id: string, bitrate: number, options: MusicProviderRequestOptions = {}): Promise<MusicResourceUrl> {
+  const { signal, cookie = '' } = options
   for (const rate of qianqianQualityRates(bitrate)) {
     try {
-      const payload = await requestQianqian('song/tracklink', { TSID: id, rate }, signal, true)
+      const payload = await requestQianqian('song/tracklink', { TSID: id, rate }, signal, true, cookie)
       const data = readPath(payload, 'data')
       if (!isRecord(data)) continue
       const trial = readPath(data, 'trail_audio_info.path')
@@ -168,8 +170,8 @@ export async function getBaiduUrl(id: string, bitrate: number, signal?: AbortSig
   return { url: '', size: 0, br: -1 }
 }
 
-async function getQianqianSongInfo(id: string, signal?: AbortSignal): Promise<Record<string, unknown> | null> {
-  const payload = await requestQianqian('song/info', { TSID: id }, signal, true)
+async function getQianqianSongInfo(id: string, signal?: AbortSignal, cookie = ''): Promise<Record<string, unknown> | null> {
+  const payload = await requestQianqian('song/info', { TSID: id }, signal, true, cookie)
   const first = readPath(payload, 'data.0')
   return isRecord(first) ? first : null
 }
@@ -187,15 +189,17 @@ function isTrustedQianqianResource(value: string): boolean {
   }
 }
 
-export async function getBaiduLyrics(id: string, signal?: AbortSignal): Promise<MusicLyrics> {
-  const info = await getQianqianSongInfo(id, signal)
+export async function getBaiduLyrics(id: string, options: MusicProviderRequestOptions = {}): Promise<MusicLyrics> {
+  const { signal, cookie = '' } = options
+  const info = await getQianqianSongInfo(id, signal, cookie)
   const lyricUrl = readString(info?.lyric).trim()
   if (!lyricUrl || !isTrustedQianqianResource(lyricUrl)) return { lyric: '', tlyric: '' }
-  const lyric = await requestText(lyricUrl, { headers: createHeaders(), signal })
+  const lyric = await requestText(lyricUrl, { headers: createHeaders(cookie), signal })
   return { lyric, tlyric: '' }
 }
 
-export async function getBaiduPicture(id: string, signal?: AbortSignal): Promise<MusicResourceUrl> {
-  const info = await getQianqianSongInfo(id, signal)
+export async function getBaiduPicture(id: string, options: MusicProviderRequestOptions = {}): Promise<MusicResourceUrl> {
+  const { signal, cookie = '' } = options
+  const info = await getQianqianSongInfo(id, signal, cookie)
   return { url: readString(info?.pic).trim().replace(/^http:/, 'https:') }
 }

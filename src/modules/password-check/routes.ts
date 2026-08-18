@@ -2,7 +2,7 @@ import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi'
 import { createBodyLimitMiddleware } from '../../http/middleware/request-limits.js'
 import { ApiErrorResponseSchema, createSuccessEnvelopeSchema } from '../../shared/openapi.js'
 import { respondWithFailure, respondWithSuccess } from '../../shared/response.js'
-import type { AppEnv } from '../../types/app.js'
+import type { AppEnv } from '../../http/types.js'
 import {
   checkPasswordStrength,
   formatPasswordCheckMarkdown,

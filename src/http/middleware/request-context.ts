@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { createMiddleware } from 'hono/factory'
 import type { Logger } from '../../shared/logger.js'
-import type { AppEnv } from '../../types/app.js'
+import type { AppEnv } from '../types.js'
 
 const requestIDPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i

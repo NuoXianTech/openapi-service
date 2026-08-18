@@ -1,7 +1,6 @@
 import { createCipheriv, createHash, randomBytes } from 'node:crypto'
 import { isRecord, mergeCookieHeader, normalizeCollection, readNumber, readPath, readString, requestJson } from './common.js'
-import type { MusicLyrics, MusicResourceUrl, MusicTrack, NeteaseAlbum, NeteaseArtist, NeteaseTrack } from './types.js'
-import { getMusicPlatformCookie } from './configuration.js'
+import type { MusicLyrics, MusicProviderRequestOptions, MusicResourceUrl, MusicTrack, NeteaseAlbum, NeteaseArtist, NeteaseTrack } from './types.js'
 
 const EAPI_KEY = Buffer.from('e82ckenh8dichen8', 'utf8')
 const BASE_URL = 'https://music.163.com'
@@ -29,8 +28,7 @@ function createHeaders(configuredCookie: string): Record<string, string> {
   }
 }
 
-async function requestNetease(options: NeteaseRequestOptions, signal?: AbortSignal): Promise<unknown> {
-  const cookie = getMusicPlatformCookie('netease')
+async function requestNetease(options: NeteaseRequestOptions, signal?: AbortSignal, cookie = ''): Promise<unknown> {
   const payload = await requestJson(`${BASE_URL}${options.path.replace('/api/', '/eapi/')}`, {
     method: 'POST',
     headers: createHeaders(cookie),
@@ -71,28 +69,32 @@ function normalizeTracks(payload: unknown, path: string): MusicTrack[] {
   return normalizeCollection(payload, path, normalizeTrack)
 }
 
-export async function searchNetease(keyword: string, page: number, limit: number, signal?: AbortSignal): Promise<MusicTrack[]> {
-  const payload = await requestNetease({ path: '/api/cloudsearch/pc', body: { s: keyword, type: 1, limit, total: 'true', offset: (page - 1) * limit } }, signal)
+export async function searchNetease(keyword: string, page: number, limit: number, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal, cookie = '' } = options
+  const payload = await requestNetease({ path: '/api/cloudsearch/pc', body: { s: keyword, type: 1, limit, total: 'true', offset: (page - 1) * limit } }, signal, cookie)
   return normalizeTracks(payload, 'result.songs')
 }
 
-export async function getNeteaseTracks(operation: 'song' | 'album' | 'playlist', id: string, signal?: AbortSignal): Promise<MusicTrack[]> {
+export async function getNeteaseTracks(operation: 'song' | 'album' | 'playlist', id: string, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal, cookie = '' } = options
   const requests: Record<typeof operation, NeteaseRequestOptions & { resultPath: string }> = {
     song: { path: '/api/v3/song/detail/', body: { c: JSON.stringify([{ id, v: 0 }]) }, resultPath: 'songs' },
     album: { path: `/api/v1/album/${encodeURIComponent(id)}`, body: { id, limit: '200', total: 'true' }, resultPath: 'songs' },
     playlist: { path: '/api/v6/playlist/detail', body: { id, n: '200', s: '0', t: '0' }, resultPath: 'playlist.tracks' }
   }
   const request = requests[operation]
-  return normalizeTracks(await requestNetease(request, signal), request.resultPath)
+  return normalizeTracks(await requestNetease(request, signal, cookie), request.resultPath)
 }
 
-export async function getNeteaseArtistTracks(id: string, limit: number, signal?: AbortSignal): Promise<MusicTrack[]> {
-  const payload = await requestNetease({ path: `/api/v1/artist/${encodeURIComponent(id)}`, body: { id, top: limit, ext: 'true' } }, signal)
+export async function getNeteaseArtistTracks(id: string, limit: number, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal, cookie = '' } = options
+  const payload = await requestNetease({ path: `/api/v1/artist/${encodeURIComponent(id)}`, body: { id, top: limit, ext: 'true' } }, signal, cookie)
   return normalizeTracks(payload, 'hotSongs').slice(0, limit)
 }
 
-export async function getNeteaseUrl(id: string, bitrate: number, signal?: AbortSignal): Promise<MusicResourceUrl> {
-  const payload = await requestNetease({ path: '/api/song/enhance/player/url', body: { ids: [id], br: bitrate * 1000 } }, signal)
+export async function getNeteaseUrl(id: string, bitrate: number, options: MusicProviderRequestOptions = {}): Promise<MusicResourceUrl> {
+  const { signal, cookie = '' } = options
+  const payload = await requestNetease({ path: '/api/song/enhance/player/url', body: { ids: [id], br: bitrate * 1000 } }, signal, cookie)
   const first = readPath(payload, 'data.0')
   if (!isRecord(first)) return { url: '', size: 0, br: -1 }
   const fallback = isRecord(first.uf) ? first.uf.url : undefined
@@ -100,8 +102,9 @@ export async function getNeteaseUrl(id: string, bitrate: number, signal?: AbortS
   return { url, size: typeof first.size === 'number' ? first.size : 0, br: typeof first.br === 'number' ? first.br / 1000 : -1 }
 }
 
-export async function getNeteaseLyrics(id: string, signal?: AbortSignal): Promise<MusicLyrics> {
-  const payload = await requestNetease({ path: '/api/song/lyric', body: { id, os: 'linux', lv: -1, kv: -1, tv: -1 } }, signal)
+export async function getNeteaseLyrics(id: string, options: MusicProviderRequestOptions = {}): Promise<MusicLyrics> {
+  const { signal, cookie = '' } = options
+  const payload = await requestNetease({ path: '/api/song/lyric', body: { id, os: 'linux', lv: -1, kv: -1, tv: -1 } }, signal, cookie)
   const lyric = readPath(payload, 'lrc.lyric')
   const translatedLyric = readPath(payload, 'tlyric.lyric')
   return { lyric: typeof lyric === 'string' ? lyric : '', tlyric: typeof translatedLyric === 'string' ? translatedLyric : '' }

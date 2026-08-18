@@ -1,12 +1,9 @@
 import type { OpenAPIHono } from '@hono/zod-openapi'
 import type { ServiceConfigurationManager } from '../../configuration/manager.js'
 import type { ConfigurationSnapshot } from '../../configuration/types.js'
-import type { AppEnv } from '../../types/app.js'
-import { clearMusicSearchCache } from './client.js'
-import {
-  bindMusicConfiguration,
-  musicConfigurationGroup
-} from './configuration.js'
+import type { AppEnv } from '../../http/types.js'
+import { createMusicClient } from './client.js'
+import { musicConfigurationGroup } from './configuration.js'
 import { registerMusicRoutes } from './routes.js'
 import { MUSIC_PLATFORMS } from './types.js'
 
@@ -35,9 +32,9 @@ export function registerMusicModule(
   app: OpenAPIHono<AppEnv>,
   configuration: ServiceConfigurationManager
 ): void {
-  bindMusicConfiguration(configuration)
+  const music = createMusicClient(configuration)
   configuration.subscribe((current, previous) => {
-    if (musicConfigurationChanged(current, previous)) clearMusicSearchCache()
+    if (musicConfigurationChanged(current, previous)) music.clearSearchCache()
   })
-  registerMusicRoutes(app)
+  registerMusicRoutes(app, configuration, music)
 }

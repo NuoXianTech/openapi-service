@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../src/app.js'
-import type { ServiceConfig } from '../src/config/load.js'
+import type { ServiceConfig } from '../src/config.js'
 import { serviceConfigurationDefinition } from '../src/modules/index.js'
 import { EncryptedConfigurationFileStore } from '../src/configuration/file-store.js'
 import { ServiceConfigurationManager } from '../src/configuration/manager.js'
@@ -81,6 +81,36 @@ describe('service configuration protocol', () => {
       serviceId: config.serviceId,
       definition: invalid as unknown as ServiceConfigurationDefinition
     })).toThrow()
+  })
+
+  it('enforces the bounded definition shape used by Platform', () => {
+    const oversizedGroup = {
+      schemaVersion: 1,
+      groups: [{
+        key: 'source',
+        label: 'x'.repeat(301),
+        fields: []
+      }]
+    }
+    expect(ConfigurationDefinitionSchema.safeParse(oversizedGroup).success)
+      .toBe(false)
+
+    const oversizedField = {
+      schemaVersion: 1,
+      groups: [{
+        key: 'source',
+        label: 'Source',
+        fields: [{
+          key: 'source.value',
+          type: 'text',
+          label: 'Value',
+          default: '',
+          maxLength: 100_001
+        }]
+      }]
+    }
+    expect(ConfigurationDefinitionSchema.safeParse(oversizedField).success)
+      .toBe(false)
   })
 
   it('boots with incomplete required values but enforces them on apply', async () => {

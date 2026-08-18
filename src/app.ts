@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
-import type { ServiceConfig } from './config/load.js'
+import type { ServiceConfig } from './config.js'
 import { createInMemoryConfigurationManager } from './configuration/create.js'
 import type { ServiceConfigurationManager } from './configuration/manager.js'
 import {
@@ -24,8 +24,8 @@ import {
   normalizeServiceError,
   respondWithError
 } from './http/errors.js'
-import { RuntimeState } from './runtime/state.js'
-import type { AppEnv } from './types/app.js'
+import type { AppEnv } from './http/types.js'
+import { RuntimeState } from './runtime-state.js'
 import { respondWithFailure } from './shared/response.js'
 
 export interface CreateAppOptions {

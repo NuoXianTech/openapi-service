@@ -1,11 +1,11 @@
 import { serve } from '@hono/node-server'
 import type { Server } from 'node:http'
 import { createApp } from './app.js'
-import { loadConfig } from './config/load.js'
+import { loadConfig } from './config.js'
 import { createPersistentConfigurationManager } from './configuration/create.js'
 import { createJsonLogger } from './shared/logger.js'
 import { serviceConfigurationDefinition } from './modules/index.js'
-import { RuntimeState } from './runtime/state.js'
+import { RuntimeState } from './runtime-state.js'
 
 const logger = createJsonLogger()
 

@@ -1,7 +1,7 @@
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi'
 import { respondWithFailure } from '../../shared/response.js'
 import { ApiErrorResponseSchema } from '../../shared/openapi.js'
-import type { AppEnv } from '../../types/app.js'
+import type { AppEnv } from '../../http/types.js'
 import { readPlayerAsset } from './assets.js'
 import { renderArtplayerHTML, renderDplayerHTML } from './html.js'
 import { parseArtplayerOptions, parseDplayerOptions } from './query.js'

@@ -2,7 +2,7 @@ import { bodyLimit } from 'hono/body-limit'
 import { createMiddleware } from 'hono/factory'
 import { ServiceError } from '../errors.js'
 import { respondWithFailure } from '../../shared/response.js'
-import type { AppEnv } from '../../types/app.js'
+import type { AppEnv } from '../types.js'
 
 export function createBodyLimitMiddleware(maxSize: number) {
   return bodyLimit({

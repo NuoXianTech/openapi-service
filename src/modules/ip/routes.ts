@@ -5,7 +5,7 @@ import {
   ApiErrorResponseSchema,
   createSuccessEnvelopeSchema
 } from '../../shared/openapi.js'
-import type { AppEnv } from '../../types/app.js'
+import type { AppEnv } from '../../http/types.js'
 import type { ServiceConfigurationManager } from '../../configuration/manager.js'
 import { IpLookupError, lookupIpLocation } from './service.js'
 

@@ -1,10 +1,26 @@
 import { join, resolve } from 'node:path'
-import { environmentSchema } from './schema.js'
+import { z } from 'zod'
 
 const READ_HEADER_TIMEOUT_MS = 5_000
 const REQUEST_TIMEOUT_MS = 20_000
 const SHUTDOWN_TIMEOUT_MS = 10_000
 const MAX_REQUEST_BODY_BYTES = 1024 * 1024
+
+const environmentSchema = z.object({
+  LISTEN_ADDR: z.string().trim().min(1).default(':8080'),
+  API_SERVICE_TOKEN: z.string().trim().min(32),
+  SERVICE_DATA_DIR: z.string().trim().min(1).default('data'),
+  SERVICE_ID: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/)
+    .default('openapi-service'),
+  SERVICE_NAME: z.string().trim().min(1).max(160).default('OpenAPI Service'),
+  SERVICE_VERSION: z.string().trim().min(1).optional(),
+  SERVICE_COMMIT: z.string().trim().min(1).default('unknown')
+})
 
 export interface ServiceConfig {
   hostname: string

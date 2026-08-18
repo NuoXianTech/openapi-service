@@ -1,6 +1,6 @@
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { loadConfig } from '../src/config/load.js'
+import { loadConfig } from '../src/config.js'
 
 const currentToken = 'current-token-that-is-at-least-32-characters'
 

@@ -3,12 +3,11 @@ import { deflateSync } from 'node:zlib'
 import iconv from 'iconv-lite'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../src/app.js'
-import type { ServiceConfig } from '../src/config/load.js'
+import type { ServiceConfig } from '../src/config.js'
 import { ServiceConfigurationManager } from '../src/configuration/manager.js'
 import { getBaiduTracks, searchBaidu } from '../src/modules/music/baidu.js'
-import { clearMusicSearchCache, isMusicPlatform, searchMusic } from '../src/modules/music/client.js'
+import { createMusicClient, isMusicPlatform } from '../src/modules/music/client.js'
 import { mergeCookieHeader, parseJsonResponseText } from '../src/modules/music/common.js'
-import { bindMusicConfiguration } from '../src/modules/music/configuration.js'
 import { getKuwoLyrics, getKuwoTracks, getKuwoUrl, searchKuwo } from '../src/modules/music/kuwo.js'
 import { getNeteasePicture } from '../src/modules/music/netease.js'
 import { formatMusicLyrics, normalizeMusicRedirectUrl, toPublicMusicTracks } from '../src/modules/music/public-contract.js'
@@ -48,8 +47,6 @@ function configuration(initialValues: Record<string, unknown> = {}) {
 
 afterEach(() => {
   vi.restoreAllMocks()
-  clearMusicSearchCache()
-  bindMusicConfiguration(configuration())
 })
 
 describe('music contract', () => {
@@ -135,7 +132,7 @@ describe('music contract', () => {
 
 describe('music provider regressions', () => {
   it('caches successful searches in the client layer', async () => {
-    createApp({ config, logger })
+    const music = createMusicClient(configuration())
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response(JSON.stringify({
         code: 0,
@@ -154,7 +151,7 @@ describe('music provider regressions', () => {
       page: 1,
       limit: 3
     }
-    expect(await searchMusic(options)).toEqual(await searchMusic(options))
+    expect(await music.search(options)).toEqual(await music.search(options))
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
@@ -286,6 +283,45 @@ describe('music provider regressions', () => {
 })
 
 describe('music route', () => {
+  it('keeps configuration isolated between app instances', async () => {
+    const firstApp = createApp({
+      config,
+      logger,
+      configuration: configuration({
+        'music.tencentCookie': 'uin=10001; token=first'
+      })
+    })
+    const secondApp = createApp({
+      config,
+      logger,
+      configuration: configuration({
+        'music.tencentCookie': 'uin=20002; token=second'
+      })
+    })
+    const responseBody = JSON.stringify({
+      code: 0,
+      subcode: 0,
+      data: { song: { list: [] } }
+    })
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(responseBody))
+      .mockResolvedValueOnce(new Response(responseBody))
+
+    await firstApp.request(
+      '/v1/music?server=tencent&id=first-query',
+      { headers: authorization }
+    )
+    await secondApp.request(
+      '/v1/music?server=tencent&id=second-query',
+      { headers: authorization }
+    )
+
+    const firstHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers)
+    const secondHeaders = new Headers(fetchMock.mock.calls[1]?.[1]?.headers)
+    expect(firstHeaders.get('cookie')).toContain('uin=10001; token=first')
+    expect(secondHeaders.get('cookie')).toContain('uin=20002; token=second')
+  })
+
   it('returns the standard envelope and uses the Platform public origin', async () => {
     const app = createApp({ config, logger })
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(

@@ -2,8 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { inflateSync } from 'node:zlib'
 import iconv from 'iconv-lite'
 import { buildUrl, isRecord, mergeCookieHeader, normalizeCollection, parseJsonResponseText, readNumber, readPath, readString, requestBuffer, requestJson, requestText, splitArtists } from './common.js'
-import type { MusicLyrics, MusicResourceUrl, MusicTrack } from './types.js'
-import { getMusicPlatformCookie } from './configuration.js'
+import type { MusicLyrics, MusicProviderRequestOptions, MusicResourceUrl, MusicTrack } from './types.js'
 
 const LEGACY_SEARCH_API = 'https://search.kuwo.cn/r.s'
 const SONG_SEARCH_API = 'https://www.kuwo.cn/search/searchMusicBykeyWord'
@@ -21,8 +20,8 @@ const NEW_LYRIC_WORD_RE = /<(-?\d+),(-?\d+)>([^<]*)/g
 const PYTHON_LITERAL_REPLACEMENTS = [['None', 'null'], ['True', 'true'], ['False', 'false']] as const
 const SINGLE_QUOTE_ESCAPES: Record<string, string> = { 'b': '\b', 'f': '\f', 'n': '\n', 'r': '\r', 't': '\t', '\\': '\\', '\'': '\'', '"': '"', '/': '/' }
 
-function createHeaders(referer = 'https://www.kuwo.cn/'): Record<string, string> {
-  const cookie = mergeCookieHeader('', getMusicPlatformCookie('kuwo'))
+function createHeaders(referer = 'https://www.kuwo.cn/', configuredCookie = ''): Record<string, string> {
+  const cookie = mergeCookieHeader('', configuredCookie)
   return cookie ? { ...BASE_HEADERS, referer, cookie } : { ...BASE_HEADERS, referer }
 }
 
@@ -137,13 +136,13 @@ function parseKuwoResponseText(text: string): unknown {
   }
 }
 
-async function requestLegacyKuwoUrl(url: string, signal?: AbortSignal): Promise<unknown> {
-  const text = await requestText(url, { headers: createHeaders(), signal })
+async function requestLegacyKuwoUrl(url: string, signal?: AbortSignal, cookie = ''): Promise<unknown> {
+  const text = await requestText(url, { headers: createHeaders(undefined, cookie), signal })
   return parseKuwoResponseText(text)
 }
 
-async function requestLegacyKuwo(params: Record<string, string | number>, signal?: AbortSignal): Promise<unknown> {
-  return requestLegacyKuwoUrl(buildUrl(LEGACY_SEARCH_API, params), signal)
+async function requestLegacyKuwo(params: Record<string, string | number>, signal?: AbortSignal, cookie = ''): Promise<unknown> {
+  return requestLegacyKuwoUrl(buildUrl(LEGACY_SEARCH_API, params), signal, cookie)
 }
 
 function buildOrderedUrl(baseUrl: string, entries: Array<[string, string | number]>): string {
@@ -162,7 +161,8 @@ function normalizeKuwoCollection(payload: unknown, path: string): MusicTrack[] {
   return normalizeCollection(payload, path, normalizeKuwo)
 }
 
-export async function searchKuwo(keyword: string, page: number, limit: number, signal?: AbortSignal): Promise<MusicTrack[]> {
+export async function searchKuwo(keyword: string, page: number, limit: number, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal, cookie = '' } = options
   const payload = await requestLegacyKuwoUrl(buildUrl(SONG_SEARCH_API, {
     vipver: 1,
     client: 'kt',
@@ -177,17 +177,18 @@ export async function searchKuwo(keyword: string, page: number, limit: number, s
     pn: page - 1,
     rn: limit,
     all: keyword
-  }), signal)
+  }), signal, cookie)
   return normalizeKuwoCollection(payload, 'abslist')
 }
 
-export async function getKuwoTracks(operation: 'song' | 'album' | 'playlist', rawId: string, signal?: AbortSignal): Promise<MusicTrack[]> {
+export async function getKuwoTracks(operation: 'song' | 'album' | 'playlist', rawId: string, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal, cookie = '' } = options
   const id = normalizeKuwoId(rawId)
   if (!id) return []
 
   if (operation === 'song') {
     const payload = await requestJson(buildUrl(MOBILE_API, { musicId: id, httpsStatus: 1 }), {
-      headers: createHeaders('https://m.kuwo.cn/'),
+      headers: createHeaders('https://m.kuwo.cn/', cookie),
       signal
     })
     if (!isRecord(payload)) throw new Error('酷我音乐单曲上游返回了无效数据')
@@ -208,7 +209,7 @@ export async function getKuwoTracks(operation: 'song' | 'album' | 'playlist', ra
       ['show_copyright_off', 1],
       ['pcmp4', 1],
       ['encoding', 'utf8']
-    ]), signal)
+    ]), signal, cookie)
     return normalizeKuwoCollection(payload, 'musiclist')
   }
 
@@ -223,12 +224,13 @@ export async function getKuwoTracks(operation: 'song' | 'album' | 'playlist', ra
     pcmp4: 1,
     vipver: 1,
     newver: 1
-  }), { headers: createHeaders(), signal })
+  }), { headers: createHeaders(undefined, cookie), signal })
   if (!isRecord(payload)) throw new Error('酷我音乐歌单上游返回了无效数据')
   return normalizeKuwoCollection(payload, 'musiclist')
 }
 
-export async function getKuwoArtist(rawId: string, limit: number, signal?: AbortSignal): Promise<MusicTrack[]> {
+export async function getKuwoArtist(rawId: string, limit: number, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal, cookie = '' } = options
   const id = normalizeKuwoId(rawId)
   if (!id) return []
   const payload = await requestLegacyKuwo({
@@ -241,11 +243,12 @@ export async function getKuwoArtist(rawId: string, limit: number, signal?: Abort
     vipver: 1,
     rformat: 'json',
     encoding: 'utf8'
-  }, signal)
+  }, signal, cookie)
   return normalizeKuwoCollection(payload, 'musiclist').slice(0, limit)
 }
 
-export async function getKuwoUrl(rawId: string, bitrate: number, signal?: AbortSignal): Promise<MusicResourceUrl> {
+export async function getKuwoUrl(rawId: string, bitrate: number, options: MusicProviderRequestOptions = {}): Promise<MusicResourceUrl> {
+  const { signal, cookie = '' } = options
   const id = normalizeKuwoId(rawId)
   if (!id) return { url: '', br: -1 }
   const qualities = bitrate >= 2000
@@ -267,7 +270,7 @@ export async function getKuwoUrl(rawId: string, bitrate: number, signal?: AbortS
         br: quality,
         rid: id,
         user
-      }), { headers: createHeaders(), signal })
+      }), { headers: createHeaders(undefined, cookie), signal })
       const url = readString(readPath(payload, 'data.url')).trim().replace(/^http:/, 'https:')
       if (!url) continue
       return {
@@ -286,7 +289,7 @@ export async function getKuwoUrl(rawId: string, bitrate: number, signal?: AbortS
       format: 'mp3',
       br: `${Math.min(bitrate, 320)}kmp3`,
       response: 'url'
-    }), { headers: createHeaders(), signal })
+    }), { headers: createHeaders(undefined, cookie), signal })
     const url = readString(readPath(payload, 'url')).trim().replace(/^http:/, 'https:')
     if (readNumber(readPath(payload, 'code'), -1) === 200 && url) return { url, br: Math.min(bitrate, 320) }
   } catch (error) {
@@ -393,7 +396,8 @@ function formatKuwoLegacyLyrics(lines: unknown[]): string {
   return lyric ? `${lyric}\n` : ''
 }
 
-export async function getKuwoLyrics(rawId: string, signal?: AbortSignal): Promise<MusicLyrics> {
+export async function getKuwoLyrics(rawId: string, options: MusicProviderRequestOptions = {}): Promise<MusicLyrics> {
+  const { signal, cookie = '' } = options
   const id = normalizeKuwoId(rawId)
   if (!id) return { lyric: '', tlyric: '' }
 
@@ -407,7 +411,7 @@ export async function getKuwoLyrics(rawId: string, signal?: AbortSignal): Promis
   }
 
   const payload = await requestJson(buildUrl(MOBILE_API, { musicId: id, httpsStatus: 1 }), {
-    headers: createHeaders('https://m.kuwo.cn/'),
+    headers: createHeaders('https://m.kuwo.cn/', cookie),
     signal
   })
   if (!isRecord(payload) || readNumber(payload.status, -1) !== 200) return { lyric: '', tlyric: '' }
@@ -415,11 +419,12 @@ export async function getKuwoLyrics(rawId: string, signal?: AbortSignal): Promis
   return { lyric: Array.isArray(lines) ? formatKuwoLegacyLyrics(lines) : '', tlyric: '' }
 }
 
-export async function getKuwoPicture(rawId: string, signal?: AbortSignal): Promise<MusicResourceUrl> {
+export async function getKuwoPicture(rawId: string, options: MusicProviderRequestOptions = {}): Promise<MusicResourceUrl> {
+  const { signal, cookie = '' } = options
   const id = normalizeKuwoId(rawId)
   if (!id) return { url: '' }
   const value = (await requestText(buildUrl(PICTURE_API, { corp: 'kuwo', type: 'rid_pic', pictype: 'url', size: 500, rid: id }), {
-    headers: createHeaders(),
+    headers: createHeaders(undefined, cookie),
     signal
   })).trim().replace(/^http:/, 'https:')
   try {

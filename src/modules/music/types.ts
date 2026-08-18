@@ -34,6 +34,11 @@ export interface MusicSearchOptions {
   limit: number
 }
 
+export interface MusicProviderRequestOptions {
+  signal?: AbortSignal
+  cookie?: string
+}
+
 export interface PublicMusicTrack {
   id: string
   title: string

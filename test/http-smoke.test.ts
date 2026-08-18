@@ -2,7 +2,7 @@ import { serve } from '@hono/node-server'
 import type { Server } from 'node:http'
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../src/app.js'
-import type { ServiceConfig } from '../src/config/load.js'
+import type { ServiceConfig } from '../src/config.js'
 import type { Logger } from '../src/shared/logger.js'
 
 const serviceToken = 'smoke-token-that-is-at-least-32-characters'

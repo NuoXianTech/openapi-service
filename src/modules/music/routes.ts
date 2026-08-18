@@ -1,15 +1,9 @@
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi'
+import type { ServiceConfigurationManager } from '../../configuration/manager.js'
 import { ApiErrorResponseSchema, createSuccessEnvelopeSchema } from '../../shared/openapi.js'
 import { respondWithFailure, respondWithSuccess } from '../../shared/response.js'
-import type { AppEnv } from '../../types/app.js'
-import {
-  getMusicLyrics,
-  getMusicPicture,
-  getMusicTracks,
-  getMusicUrl,
-  searchMusic
-} from './client.js'
-import { enabledMusicPlatforms } from './configuration.js'
+import type { AppEnv } from '../../http/types.js'
+import type { MusicClient } from './client.js'
 import {
   formatMusicLyrics,
   normalizeMusicRedirectUrl,
@@ -106,14 +100,21 @@ function publicOrigin(
   return new URL(fallback.origin)
 }
 
-export function registerMusicRoutes(app: OpenAPIHono<AppEnv>) {
+export function registerMusicRoutes(
+  app: OpenAPIHono<AppEnv>,
+  configuration: ServiceConfigurationManager,
+  music: MusicClient
+) {
   app.openapi(route, async (c) => {
     const parsed = parseMusicRequestQuery(c.req.valid('query'))
     if (!parsed.ok) {
       return respondWithFailure(c, 400, parsed.code, parsed.message) as never
     }
     const request = parsed.data
-    if (!enabledMusicPlatforms().has(request.platform)) {
+    const enabledPlatforms = configuration.getValue<string[]>(
+      'music.enabledPlatforms'
+    )
+    if (!enabledPlatforms.includes(request.platform)) {
       return respondWithFailure(
         c,
         403,
@@ -125,8 +126,8 @@ export function registerMusicRoutes(app: OpenAPIHono<AppEnv>) {
     try {
       if (request.operation === 'url' || request.operation === 'pic') {
         const resource = request.operation === 'url'
-          ? await getMusicUrl(request.platform, request.id, c.get('deadlineSignal'))
-          : await getMusicPicture(request.platform, request.id, c.get('deadlineSignal'))
+          ? await music.url(request.platform, request.id, c.get('deadlineSignal'))
+          : await music.picture(request.platform, request.id, c.get('deadlineSignal'))
         const target = normalizeMusicRedirectUrl(request.platform, resource.url)
         if (!target) {
           const message = request.operation === 'url' && request.platform === 'tencent'
@@ -144,7 +145,7 @@ export function registerMusicRoutes(app: OpenAPIHono<AppEnv>) {
       }
 
       if (request.operation === 'lrc') {
-        const lyrics = await getMusicLyrics(
+        const lyrics = await music.lyrics(
           request.platform,
           request.id,
           c.get('deadlineSignal')
@@ -165,13 +166,13 @@ export function registerMusicRoutes(app: OpenAPIHono<AppEnv>) {
       }
 
       const tracks = request.operation === 'search'
-        ? await searchMusic({
+        ? await music.search({
             keyword: request.id,
             platform: request.platform,
             page: request.page,
             limit: request.limit
           }, c.get('deadlineSignal'))
-        : await getMusicTracks(
+        : await music.tracks(
             request.platform,
             request.operation,
             request.id,

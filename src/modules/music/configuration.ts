@@ -1,4 +1,3 @@
-import type { ServiceConfigurationManager } from '../../configuration/manager.js'
 import type { ConfigurationGroup } from '../../configuration/types.js'
 import { MUSIC_PLATFORMS, type MusicPlatform } from './types.js'
 
@@ -22,18 +21,3 @@ export const musicConfigurationGroup = {
     }))
   ]
 } as const satisfies ConfigurationGroup
-
-let configuration: ServiceConfigurationManager | null = null
-export function bindMusicConfiguration(manager: ServiceConfigurationManager): void {
-  configuration = manager
-}
-function manager(): ServiceConfigurationManager {
-  if (!configuration) throw new Error('music configuration is not bound')
-  return configuration
-}
-export function enabledMusicPlatforms(): Set<string> {
-  return new Set(manager().getValue<string[]>('music.enabledPlatforms'))
-}
-export function getMusicPlatformCookie(platform: MusicPlatform): string {
-  return manager().getValue<string>(`music.${platform}Cookie`)
-}

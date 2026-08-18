@@ -1,4 +1,4 @@
-import type { ServiceConfig } from '../config/load.js'
+import type { ServiceConfig } from '../config.js'
 import { EncryptedConfigurationFileStore } from './file-store.js'
 import { ServiceConfigurationManager } from './manager.js'
 import type { ServiceConfigurationDefinition } from './types.js'

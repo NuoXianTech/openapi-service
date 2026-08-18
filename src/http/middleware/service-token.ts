@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { createMiddleware } from 'hono/factory'
-import type { ServiceConfig } from '../../config/load.js'
-import type { AppEnv } from '../../types/app.js'
+import type { ServiceConfig } from '../../config.js'
+import type { AppEnv } from '../types.js'
 import { respondWithFailure } from '../../shared/response.js'
 
 const publicPaths = new Set(['/healthz', '/readyz'])

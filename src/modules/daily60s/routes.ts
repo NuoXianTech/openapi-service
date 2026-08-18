@@ -7,7 +7,7 @@ import {
   respondWithFailure,
   respondWithSuccess
 } from '../../shared/response.js'
-import type { AppEnv } from '../../types/app.js'
+import type { AppEnv } from '../../http/types.js'
 import {
   formatDaily60sMarkdown,
   formatDaily60sText,

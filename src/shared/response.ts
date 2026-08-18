@@ -1,6 +1,6 @@
 import type { Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
-import type { AppEnv } from '../types/app.js'
+import type { AppEnv } from '../http/types.js'
 
 export interface ApiResponse<T> {
   code: 'OK'

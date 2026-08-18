@@ -2,7 +2,7 @@ import {
   createRoute,
   type OpenAPIHono
 } from '@hono/zod-openapi'
-import type { ServiceConfig } from '../../config/load.js'
+import type { ServiceConfig } from '../../config.js'
 import {
   ConfigurationRevisionError,
   type ServiceConfigurationManager
@@ -29,8 +29,8 @@ import {
   ReadinessUnavailableSchema,
   ServiceDescriptionSchema
 } from '../../contracts/service.js'
-import type { RuntimeState } from '../../runtime/state.js'
-import type { AppEnv } from '../../types/app.js'
+import type { RuntimeState } from '../../runtime-state.js'
+import type { AppEnv } from '../types.js'
 import { ServiceError } from '../errors.js'
 
 function errorResponse(description: string) {

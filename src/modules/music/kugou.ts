@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import { buildUrl, isRecord, normalizeCollection, readNumber, readPath, readString, requestJson, splitArtists } from './common.js'
-import type { MusicLyrics, MusicResourceUrl, MusicTrack } from './types.js'
-import { getMusicPlatformCookie } from './configuration.js'
+import type { MusicLyrics, MusicProviderRequestOptions, MusicResourceUrl, MusicTrack } from './types.js'
 
 const BASE_HEADERS = { 'user-agent': 'IPhone-8990-searchSong', 'uni-useragent': 'iOS11.4-Phone8990-1009-0-WiFi' }
 const SIGNATURE_KEY = 'NVPh5oo715z5DIWAeQlhMDsWXXQV4hwt'
@@ -57,12 +56,14 @@ function normalizeKugouCollection(payload: unknown): MusicTrack[] {
   return normalizeCollection(payload, 'data.info', normalizeKugou)
 }
 
-export async function searchKugou(keyword: string, page: number, limit: number, signal?: AbortSignal): Promise<MusicTrack[]> {
+export async function searchKugou(keyword: string, page: number, limit: number, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal } = options
   const payload = await get(`${MOBILE_API}/search/song`, { api_ver: 1, area_code: 1, correct: 1, pagesize: limit, plat: 2, tag: 1, sver: 5, showtype: 10, page, keyword, version: 8990 }, signal)
   return normalizeKugouCollection(payload)
 }
 
-export async function getKugouTracks(operation: 'song' | 'album' | 'playlist', id: string, signal?: AbortSignal): Promise<MusicTrack[]> {
+export async function getKugouTracks(operation: 'song' | 'album' | 'playlist', id: string, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal } = options
   if (operation === 'song') {
     const payload = await requestJson('https://m.kugou.com/app/i/getSongInfo.php', {
       method: 'POST',
@@ -77,13 +78,14 @@ export async function getKugouTracks(operation: 'song' | 'album' | 'playlist', i
   return normalizeKugouCollection(payload)
 }
 
-export async function getKugouArtist(id: string, limit: number, signal?: AbortSignal): Promise<MusicTrack[]> {
+export async function getKugouArtist(id: string, limit: number, options: MusicProviderRequestOptions = {}): Promise<MusicTrack[]> {
+  const { signal } = options
   const payload = await get(`${MOBILE_API}/singer/song`, { singerid: id, area_code: 1, page: 1, plat: 0, pagesize: limit, version: 8990 }, signal)
   return normalizeKugouCollection(payload)
 }
 
-export async function getKugouUrl(id: string, bitrate: number, signal?: AbortSignal): Promise<MusicResourceUrl> {
-  const configuredCookie = getMusicPlatformCookie('kugou')
+export async function getKugouUrl(id: string, bitrate: number, options: MusicProviderRequestOptions = {}): Promise<MusicResourceUrl> {
+  const { signal, cookie: configuredCookie = '' } = options
   const cookie = parseCookie(configuredCookie)
   if (cookie.t && cookie.KugooID) {
     const token = cookie.t
@@ -147,7 +149,8 @@ export async function getKugouUrl(id: string, bitrate: number, signal?: AbortSig
   return { url: '', size: 0, br: -1 }
 }
 
-export async function getKugouLyrics(id: string, signal?: AbortSignal): Promise<MusicLyrics> {
+export async function getKugouLyrics(id: string, options: MusicProviderRequestOptions = {}): Promise<MusicLyrics> {
+  const { signal } = options
   const search = await get('https://krcs.kugou.com/search', { keyword: ' - ', ver: 1, hash: id, client: 'mobi', man: 'yes' }, signal)
   const candidate = readPath(search, 'candidates.0')
   if (!isRecord(candidate)) return { lyric: '', tlyric: '' }
@@ -156,7 +159,8 @@ export async function getKugouLyrics(id: string, signal?: AbortSignal): Promise<
   return { lyric: typeof content === 'string' ? Buffer.from(content, 'base64').toString() : '', tlyric: '' }
 }
 
-export async function getKugouPicture(id: string, signal?: AbortSignal): Promise<MusicResourceUrl> {
+export async function getKugouPicture(id: string, options: MusicProviderRequestOptions = {}): Promise<MusicResourceUrl> {
+  const { signal } = options
   const payload = await requestJson('https://m.kugou.com/app/i/getSongInfo.php', {
     method: 'POST',
     headers: { ...BASE_HEADERS, 'content-type': 'application/x-www-form-urlencoded' },

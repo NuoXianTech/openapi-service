@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../src/app.js'
-import type { ServiceConfig } from '../src/config/load.js'
+import type { ServiceConfig } from '../src/config.js'
 import { ServiceConfigurationManager } from '../src/configuration/manager.js'
 import { ensureCryptoAlgorithmsRegistered } from '../src/modules/crypto/index.js'
 import {

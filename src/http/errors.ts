@@ -1,6 +1,6 @@
 import type { Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
-import type { AppEnv } from '../types/app.js'
+import type { AppEnv } from './types.js'
 import { respondWithFailure } from '../shared/response.js'
 
 export type ErrorDetails = Record<
