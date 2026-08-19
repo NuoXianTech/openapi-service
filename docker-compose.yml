@@ -4,6 +4,7 @@ services:
     restart: unless-stopped
     environment:
       API_SERVICE_TOKEN: "${API_SERVICE_TOKEN:?API_SERVICE_TOKEN must be set}"
+      SERVICE_CONFIG_KEY: "${SERVICE_CONFIG_KEY:?SERVICE_CONFIG_KEY must be set}"
       SERVICE_ID: "${SERVICE_ID:-openapi-service}"
       SERVICE_NAME: "${SERVICE_NAME:-OpenAPI Service}"
     volumes:

@@ -5,10 +5,41 @@ const READ_HEADER_TIMEOUT_MS = 5_000
 const REQUEST_TIMEOUT_MS = 20_000
 const SHUTDOWN_TIMEOUT_MS = 10_000
 const MAX_REQUEST_BODY_BYTES = 1024 * 1024
+const CONFIGURATION_KEY_BYTES = 32
+
+function parseConfigurationKey(value: string): Buffer {
+  if (/^[0-9a-fA-F]{64}$/.test(value)) {
+    return Buffer.from(value, 'hex')
+  }
+  if (/^[A-Za-z0-9_-]+$/.test(value)) {
+    const decoded = Buffer.from(value, 'base64url')
+    if (decoded.length === CONFIGURATION_KEY_BYTES) return decoded
+  }
+  const utf8 = Buffer.from(value, 'utf8')
+  if (utf8.length === CONFIGURATION_KEY_BYTES) return utf8
+  throw new Error(
+    `SERVICE_CONFIG_KEY must be ${CONFIGURATION_KEY_BYTES} bytes (hex / base64url / utf-8)`
+  )
+}
+
+const configurationKeySchema = z.string().trim().min(1).transform(
+  (value, context) => {
+    try {
+      return parseConfigurationKey(value)
+    } catch (error) {
+      context.addIssue({
+        code: 'custom',
+        message: error instanceof Error ? error.message : 'invalid configuration key'
+      })
+      return z.NEVER
+    }
+  }
+)
 
 const environmentSchema = z.object({
   LISTEN_ADDR: z.string().trim().min(1).default(':8080'),
   API_SERVICE_TOKEN: z.string().trim().min(32),
+  SERVICE_CONFIG_KEY: configurationKeySchema,
   SERVICE_DATA_DIR: z.string().trim().min(1).default('data'),
   SERVICE_ID: z
     .string()
@@ -26,6 +57,7 @@ export interface ServiceConfig {
   hostname: string
   port: number
   serviceToken: string
+  configurationKey: Buffer
   readHeaderTimeoutMs: number
   requestTimeoutMs: number
   shutdownTimeoutMs: number
@@ -49,6 +81,7 @@ export function loadConfig(
   return {
     ...listenAddress,
     serviceToken: parsed.API_SERVICE_TOKEN,
+    configurationKey: parsed.SERVICE_CONFIG_KEY,
     readHeaderTimeoutMs: READ_HEADER_TIMEOUT_MS,
     requestTimeoutMs: REQUEST_TIMEOUT_MS,
     shutdownTimeoutMs: SHUTDOWN_TIMEOUT_MS,

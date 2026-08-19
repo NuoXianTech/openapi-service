@@ -49,19 +49,22 @@ const snapshotSchema = z.object({
 export interface EncryptedConfigurationFileStoreOptions {
   filePath: string
   serviceId: string
-  token: string
+  configurationKey: Buffer
 }
 
 export class EncryptedConfigurationFileStore
 implements ConfigurationSnapshotStore {
   readonly #filePath: string
   readonly #serviceId: string
-  readonly #token: string
+  readonly #configurationKey: Buffer
 
   constructor(options: EncryptedConfigurationFileStoreOptions) {
+    if (options.configurationKey.length !== 32) {
+      throw new Error('configuration encryption key must be 32 bytes')
+    }
     this.#filePath = options.filePath
     this.#serviceId = options.serviceId
-    this.#token = options.token
+    this.#configurationKey = Buffer.from(options.configurationKey)
   }
 
   async load(): Promise<PersistedConfigurationSnapshot | null> {
@@ -79,7 +82,7 @@ implements ConfigurationSnapshotStore {
     }
 
     try {
-      const plaintext = decryptPayload(envelope, this.#token)
+      const plaintext = decryptPayload(envelope, this.#configurationKey)
       return snapshotSchema.parse(JSON.parse(plaintext))
     } catch (error) {
       throw new Error('configuration file could not be decrypted', {
@@ -92,7 +95,7 @@ implements ConfigurationSnapshotStore {
     const envelope = encryptPayload(
       JSON.stringify(snapshot),
       this.#serviceId,
-      this.#token
+      this.#configurationKey
     )
     const directory = dirname(this.#filePath)
     await mkdir(directory, { recursive: true, mode: 0o700 })
@@ -112,8 +115,8 @@ implements ConfigurationSnapshotStore {
   }
 }
 
-function deriveKey(token: string): Buffer {
-  return createHmac('sha256', token)
+function deriveConfigurationKey(key: Buffer): Buffer {
+  return createHmac('sha256', key)
     .update('openapi-service:configuration-file:v1')
     .digest()
 }
@@ -121,10 +124,14 @@ function deriveKey(token: string): Buffer {
 function encryptPayload(
   plaintext: string,
   serviceId: string,
-  token: string
+  configurationKey: Buffer
 ) {
   const iv = randomBytes(12)
-  const cipher = createCipheriv('aes-256-gcm', deriveKey(token), iv)
+  const cipher = createCipheriv(
+    'aes-256-gcm',
+    deriveConfigurationKey(configurationKey),
+    iv
+  )
   cipher.setAAD(Buffer.from(serviceId, 'utf8'))
   const ciphertext = Buffer.concat([
     cipher.update(plaintext, 'utf8'),
@@ -141,11 +148,11 @@ function encryptPayload(
 
 function decryptPayload(
   envelope: z.infer<typeof encryptedFileSchema>,
-  token: string
+  configurationKey: Buffer
 ): string {
   const decipher = createDecipheriv(
     'aes-256-gcm',
-    deriveKey(token),
+    deriveConfigurationKey(configurationKey),
     Buffer.from(envelope.iv, 'base64url')
   )
   decipher.setAAD(Buffer.from(envelope.serviceId, 'utf8'))

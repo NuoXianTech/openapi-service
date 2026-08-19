@@ -64,6 +64,7 @@ Authorization: Service <token>
 corepack enable
 pnpm install
 $env:API_SERVICE_TOKEN = 'replace-with-at-least-32-random-characters'
+$env:SERVICE_CONFIG_KEY = 'replace-with-an-independent-32-byte-key'
 pnpm dev
 ```
 
@@ -130,6 +131,6 @@ pnpm build
 - [LanzouAPI](https://github.com/hanximeng/LanzouAPI)
 - [v50](https://github.com/vikiboss/v50)
 
-## 许可证
+## 开源协议
 
-[MIT](LICENSE) © NuoXianTech
+本项目使用 [MIT License](LICENSE)。任何人都可以免费使用、复制、修改、分发、再授权和商业使用本项目，也可以用于闭源产品。

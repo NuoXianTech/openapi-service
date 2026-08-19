@@ -11,6 +11,7 @@
 只包含进程启动所需的最小边界：
 
 - `API_SERVICE_TOKEN`
+- `SERVICE_CONFIG_KEY`
 - `SERVICE_ID`
 - `SERVICE_NAME`
 - `LISTEN_ADDR`
@@ -150,7 +151,7 @@ Platform 是期望状态源：
 - Platform 接收 Secret 后使用独立存储域加密落库。
 - Platform 管理 API 只返回 `{ configured: true | false }`，从不回显明文。
 - 下发时，明文只出现在经过 Service Token 认证的 Platform → Service 请求内；生产网络必须使用私网，跨不可信网络应增加 TLS/mTLS。
-- Service 使用当前 `API_SERVICE_TOKEN` 以 AES-256-GCM 加密 `runtime/service-configuration.enc`。
+- Service 使用独立的 `SERVICE_CONFIG_KEY` 以 AES-256-GCM 加密 `runtime/service-configuration.enc`；Service Token 只负责请求认证。
 - `GET /.well-known/configuration.json` 永远只返回 Secret 是否已配置。
 - 清空 Secret 是显式操作；普通保存会保留已有值。
 - 业务 Secret 不接受环境变量引导值，避免产生 Platform 与部署环境两个期望状态源。

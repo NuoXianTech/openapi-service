@@ -19,6 +19,7 @@ function createConfig(
     hostname: '127.0.0.1',
     port: 8080,
     serviceToken,
+    configurationKey: Buffer.alloc(32, 1),
     readHeaderTimeoutMs: 5_000,
     requestTimeoutMs: 20_000,
     shutdownTimeoutMs: 10_000,

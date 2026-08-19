@@ -16,12 +16,17 @@ import { ConfigurationDefinitionSchema } from '../src/contracts/configuration.js
 import type { Logger } from '../src/shared/logger.js'
 
 const serviceToken = 'configuration-token-that-is-at-least-32-characters'
-const differentServiceToken =
-  'different-configuration-token-that-is-at-least-32-characters'
+const configurationKey = Buffer.from(
+  '0123456789abcdef0123456789abcdef'
+)
+const differentConfigurationKey = Buffer.from(
+  'abcdef0123456789abcdef0123456789'
+)
 const config: ServiceConfig = {
   hostname: '127.0.0.1',
   port: 8080,
   serviceToken,
+  configurationKey,
   readHeaderTimeoutMs: 5_000,
   requestTimeoutMs: 20_000,
   shutdownTimeoutMs: 10_000,
@@ -307,7 +312,7 @@ describe('service configuration protocol', () => {
       store: new EncryptedConfigurationFileStore({
         filePath,
         serviceId: config.serviceId,
-        token: serviceToken
+        configurationKey
       })
     })
     const first = createManager()
@@ -329,7 +334,7 @@ describe('service configuration protocol', () => {
     })
   })
 
-  it('rejects a snapshot encrypted with another Service Token', async () => {
+  it('keeps the v1 format and rejects another configuration key', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'openapi-config-token-'))
     tempDirectories.push(directory)
     const filePath = join(directory, 'service-configuration.enc')
@@ -346,13 +351,17 @@ describe('service configuration protocol', () => {
     await new EncryptedConfigurationFileStore({
       filePath,
       serviceId: config.serviceId,
-      token: serviceToken
+      configurationKey
     }).save(snapshot)
+    expect(JSON.parse(await readFile(filePath, 'utf8'))).toMatchObject({
+      version: 1,
+      serviceId: config.serviceId
+    })
 
     await expect(new EncryptedConfigurationFileStore({
       filePath,
       serviceId: config.serviceId,
-      token: differentServiceToken
+      configurationKey: differentConfigurationKey
     }).load()).rejects.toThrow('configuration file could not be decrypted')
   })
 })

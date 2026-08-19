@@ -34,19 +34,20 @@ pnpm build
 
 Service 仓库根目录提供独立 `docker-compose.yml`，Platform 仓库不再捆绑启动 Service。
 
-首次部署先准备共享私网和 Service Secret：
+首次部署先准备共享私网、Service Token 和独立配置加密密钥：
 
 ```bash
 docker network inspect openapi-network >/dev/null 2>&1 || \
   docker network create openapi-network
 cp .env.example .env
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+node -e "const { randomBytes } = require('crypto'); console.log('API_SERVICE_TOKEN=' + randomBytes(32).toString('hex')); console.log('SERVICE_CONFIG_KEY=' + randomBytes(32).toString('hex'))"
 ```
 
 把生成值写入 Service 仓库旁的 `.env`：
 
 ```env
 API_SERVICE_TOKEN=replace-with-an-independent-random-value
+SERVICE_CONFIG_KEY=replace-with-an-independent-64-character-hex-value
 SERVICE_ID=openapi-service
 SERVICE_NAME=OpenAPI Service
 ```
@@ -123,6 +124,7 @@ pnpm install --prod --frozen-lockfile
 ```bash
 export NODE_ENV=production
 export API_SERVICE_TOKEN='replace-with-an-independent-random-value'
+export SERVICE_CONFIG_KEY='replace-with-an-independent-64-character-hex-value'
 export SERVICE_ID='openapi-service'
 export SERVICE_NAME='OpenAPI Service'
 export SERVICE_DATA_DIR=/var/lib/openapi-service

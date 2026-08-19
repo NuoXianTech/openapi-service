@@ -104,7 +104,7 @@ Operation 应共享该 Tag。只为公开 Operation 提供资产或内部依赖�
 | --- | --- | --- |
 | Platform 的公开路径、鉴权、积分、限流、启停和删除 | 否 | 发布 Routing Revision |
 | 已声明的模块开关、Cookie、数据库密钥和算法列表 | 否 | Platform 保存并热更新 Service |
-| Service Token、统一数据根目录、网络和进程配置 | 否 | 滚动重启 Service |
+| Service Token、配置加密密钥、统一数据根目录、网络和进程配置 | 否 | 滚动重启 Service |
 | Endpoint、业务逻辑、OpenAPI、配置 Schema 和依赖 | 是，仅 Service | 构建并替换 Service 镜像 |
 
 官方容器部署不在生产服务器执行 `pnpm install`、TypeScript Build 或 Nuxt Build。非容器 Release 包只需安装锁定的生产依赖，不再编译源码。

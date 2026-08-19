@@ -17,6 +17,7 @@ const headers = {
 }
 const config: ServiceConfig = {
   hostname: '127.0.0.1', port: 8080, serviceToken: token,
+  configurationKey: Buffer.alloc(32, 1),
   readHeaderTimeoutMs: 5_000, requestTimeoutMs: 20_000,
   shutdownTimeoutMs: 10_000, maxRequestBodyBytes: 1024 * 1024,
   dataDirectory: 'data', assetsDirectory: 'data/assets',

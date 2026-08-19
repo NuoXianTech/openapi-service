@@ -4,11 +4,12 @@
 
 ## 1. 运行配置
 
-Service 只公开五个部署环境变量：
+Service 只公开六个部署环境变量：
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `API_SERVICE_TOKEN` | 无 | 必填，至少 32 个字符；只用于 Platform → Service 认证和本地配置快照加密 |
+| `API_SERVICE_TOKEN` | 无 | 必填，至少 32 个字符；只用于 Platform → Service 请求认证 |
+| `SERVICE_CONFIG_KEY` | 无 | 必填，独立的 32-byte 密钥；支持 64 位 hex、base64url 或恰好 32-byte UTF-8，用于本地配置快照加密 |
 | `SERVICE_ID` | `openapi-service` | 稳定的服务契约身份；同一 Internal Upstream 的全部 Target 必须一致 |
 | `SERVICE_NAME` | `OpenAPI Service` | Platform 发现后展示的服务名称；同一 Internal Upstream 的全部 Target 必须一致 |
 | `LISTEN_ADDR` | `:8080` | 可选，格式为 `host:port`、`[ipv6]:port` 或单独端口 |
@@ -18,6 +19,7 @@ Service 只公开五个部署环境变量：
 
 ```dotenv
 API_SERVICE_TOKEN=replace-with-at-least-32-random-characters
+SERVICE_CONFIG_KEY=replace-with-an-independent-64-character-hex-value
 SERVICE_ID=openapi-service
 SERVICE_NAME=OpenAPI Service
 LISTEN_ADDR=:8080
@@ -26,7 +28,7 @@ SERVICE_DATA_DIR=data
 
 `LISTEN_ADDR` 接受 `:8080`、`127.0.0.1:8080`、`8080` 或 `[::1]:8080`。使用官方 Docker 镜像时保留镜像内的 `:8080` 与 `/app/data` 默认值即可；Compose 已将外挂资产和运行快照挂载到 `/app/data` 对应目录。
 
-`.env.example` 列出以上五个管理员可配置项。`SERVICE_ID` 只允许小写字母、数字以及分隔符 `.`, `_`, `-`，最大 120 个字符。它同时参与配置快照归属和 Platform 契约校验：同一 Internal Upstream 的全部 Target 必须使用相同值；已有快照或已经被 Platform 发现后不得随意修改。`SERVICE_NAME` 是展示名称，最大 160 个字符。
+`.env.example` 列出以上六个管理员可配置项。`SERVICE_CONFIG_KEY` 必须与 `API_SERVICE_TOKEN` 分别生成，并与运行快照一起备份；已有快照后不能直接替换。`SERVICE_ID` 只允许小写字母、数字以及分隔符 `.`, `_`, `-`，最大 120 个字符。它同时参与配置快照归属和 Platform 契约校验：同一 Internal Upstream 的全部 Target 必须使用相同值；已有快照或已经被 Platform 发现后不得随意修改。`SERVICE_NAME` 是展示名称，最大 160 个字符。
 
 `SERVICE_VERSION` 与 `SERVICE_COMMIT` 是官方镜像在构建阶段注入的观测信息，不属于管理员日常运行配置，因此不放入模板。
 
@@ -55,7 +57,7 @@ SERVICE_DATA_DIR=data
 
 `runtime/service-configuration.enc` 是 Service 自动生成的本地配置快照。Platform 仍是唯一的期望状态源；当管理员保存音乐 Cookie、IP 数据库密钥、算法开关等业务配置时，Service 在应用配置后把最后一次成功的完整 Revision 写入该文件。这样 Service 单独重启或滚动升级时不必等待 Platform 再次下发，就能恢复原有业务配置。
 
-快照可能包含 Secret，因此使用当前 `API_SERVICE_TOKEN` 派生密钥并以 AES-256-GCM 加密，文件权限会尽量收紧为仅当前进程用户可读写。它不需要手工创建或编辑，但必须放在各实例独立的可写持久化目录。删除快照不会删除 Platform 中加密保存的期望配置；Service 会以默认配置启动，管理员需要在 Platform 执行“同步全部 Target”重新生成快照后再让该 Target 承载流量。
+快照可能包含 Secret，因此使用独立的 `SERVICE_CONFIG_KEY` 派生密钥并以 AES-256-GCM 加密，文件权限会尽量收紧为仅当前进程用户可读写。它不需要手工创建或编辑，但必须放在各实例独立的可写持久化目录。删除快照不会删除 Platform 中加密保存的期望配置；Service 会以默认配置启动，管理员需要在 Platform 执行“同步全部 Target”重新生成快照后再让该 Target 承载流量。
 
 模块不能再增加 `XXX_DATABASE_DIRECTORY`、`XXX_MODEL_PATH` 等环境变量。需要外挂、不能提交 Git 的数据库、模型、词典或证书包时，统一读取：
 
@@ -84,7 +86,7 @@ Platform 不读取任何全局 Service Token 环境变量。每个 Internal Upst
 
 Token 由 Platform 使用自己的数据密钥加密保存。Service 端的 `API_SERVICE_TOKEN` 必须与该 Upstream 中保存的值相同。多个 Service 可以使用完全不同的地址和 Token。
 
-同一 Internal Upstream 的多个 Target 是同一个服务契约的副本。例如同一主机上的 `http://127.0.0.1:3001` 与 `http://127.0.0.1:3002` 必须使用相同的 `SERVICE_ID`、`SERVICE_NAME` 和 `API_SERVICE_TOKEN`。每个进程使用独立的可写 `SERVICE_DATA_DIR/runtime`；较大的外挂数据可以把同一宿主机目录分别只读挂载到各实例的 `SERVICE_DATA_DIR/assets`。
+同一 Internal Upstream 的多个 Target 是同一个服务契约的副本。例如同一主机上的 `http://127.0.0.1:3001` 与 `http://127.0.0.1:3002` 必须使用相同的 `SERVICE_ID`、`SERVICE_NAME` 和 `API_SERVICE_TOKEN`。每个进程使用独立的可写 `SERVICE_DATA_DIR/runtime`；副本可以使用不同的 `SERVICE_CONFIG_KEY`，但每个密钥都必须随对应运行快照备份。较大的外挂数据可以把同一宿主机目录分别只读挂载到各实例的 `SERVICE_DATA_DIR/assets`。
 
 ## 4. 健康检查
 
@@ -120,13 +122,12 @@ docker compose ps
 
 `0.1.0` 不提供双 Token 在线轮换，也不公开 `API_SERVICE_PREVIOUS_TOKEN`。日常维护应保持 Token 稳定；只有泄露或环境迁移时才更换。
 
-配置快照使用当前 Token 加密，因此更换 Token 时需要维护窗口：
+配置快照不再使用 Token 加密，因此只更换 `API_SERVICE_TOKEN` 不会影响已有快照。Token 更换仍需要维护窗口，以同步更新 Service 与 Platform：
 
-1. 备份 `runtime/service-configuration.enc`，并确认 Platform 中保存的期望配置完整。
-2. 暂停或禁用对应 Target。
-3. 停止 Service，删除旧快照，设置新的 `API_SERVICE_TOKEN` 后重新启动。
-4. 在 Platform 的对应 Internal Upstream 更新 Token。
-5. 重新发现 Service，并把期望配置同步到全部 Target。
-6. 验证业务 Route 后重新启用流量。
+1. 暂停或禁用对应 Target。
+2. 停止 Service，设置新的 `API_SERVICE_TOKEN` 后重新启动；保持 `SERVICE_CONFIG_KEY` 不变。
+3. 在 Platform 的对应 Internal Upstream 更新 Token。
+4. 重新发现 Service 并验证连接。
+5. 验证业务 Route 后重新启用流量。
 
-旧快照不能使用新 Token 解密；直接修改 Token 而保留快照会让 Service 以 `configuration file could not be decrypted` 拒绝启动。这是防止用错误密钥静默丢失业务 Secret 的 fail-closed 行为。
+`SERVICE_CONFIG_KEY` 是长期数据密钥，不应跟随 Token 轮换。直接修改它而保留快照会让 Service 以 `configuration file could not be decrypted` 拒绝启动；当前版本不提供在线重加密或 Keyring。
