@@ -1,19 +1,18 @@
-export async function readLimitedText(
+export async function readLimitedBuffer(
   response: Response,
   maximumBytes: number,
   limitMessage = 'upstream response is too large'
-): Promise<string> {
+): Promise<Buffer> {
   const contentLength = Number(response.headers.get('content-length'))
   if (Number.isFinite(contentLength) && contentLength > maximumBytes) {
     await response.body?.cancel().catch(() => undefined)
     throw new Error(limitMessage)
   }
-  if (!response.body) return ''
+  if (!response.body) return Buffer.alloc(0)
 
   const reader = response.body.getReader()
-  const decoder = new TextDecoder()
+  const chunks: Uint8Array[] = []
   let received = 0
-  let text = ''
   try {
     while (true) {
       const { done, value } = await reader.read()
@@ -22,13 +21,22 @@ export async function readLimitedText(
       if (received > maximumBytes) {
         throw new Error(limitMessage)
       }
-      text += decoder.decode(value, { stream: true })
+      chunks.push(value)
     }
-    return text + decoder.decode()
+    return Buffer.concat(chunks.map(chunk => Buffer.from(chunk)))
   } catch (error) {
     await reader.cancel().catch(() => undefined)
     throw error
   } finally {
     reader.releaseLock()
   }
+}
+
+export async function readLimitedText(
+  response: Response,
+  maximumBytes: number,
+  limitMessage = 'upstream response is too large'
+): Promise<string> {
+  const buffer = await readLimitedBuffer(response, maximumBytes, limitMessage)
+  return new TextDecoder().decode(buffer)
 }

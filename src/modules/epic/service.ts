@@ -1,4 +1,5 @@
 import { readLimitedText } from '../../shared/limited-response.js'
+import { waitForAbort } from '../../shared/abort.js'
 
 const API_URL = 'https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=zh-CN&country=CN&allowCountries=CN'
 const CACHE_TTL_MS = 10 * 60 * 1000
@@ -207,7 +208,7 @@ function sortGames(first: EpicFreeGame, second: EpicFreeGame): number {
     || first.title.localeCompare(second.title, 'zh-CN')
 }
 
-async function fetchGames(signal?: AbortSignal): Promise<EpicFreeGame[]> {
+async function fetchGames(): Promise<EpicFreeGame[]> {
   let response: Response
   try {
     response = await fetch(API_URL, {
@@ -216,7 +217,7 @@ async function fetchGames(signal?: AbortSignal): Promise<EpicFreeGame[]> {
         'user-agent': 'Mozilla/5.0 Chrome/124 Safari/537.36'
       },
       redirect: 'error',
-      signal: signal ?? AbortSignal.timeout(15_000)
+      signal: AbortSignal.timeout(15_000)
     })
   } catch (error) {
     throw new Error('Epic 上游请求失败', { cause: error })
@@ -242,11 +243,11 @@ export async function getEpicFreeGames(
 ): Promise<EpicFreeGame[]> {
   const now = Date.now()
   if (!cache || cache.expiresAt <= now) {
-    pending ??= fetchGames(signal).then((games) => {
+    pending ??= fetchGames().then((games) => {
       cache = { games, expiresAt: Date.now() + CACHE_TTL_MS }
       return games
     }).finally(() => { pending = null })
-    await pending
+    await waitForAbort(pending, signal)
   }
   return (cache?.games ?? [])
     .filter(game => game.free_end_at > now)

@@ -1,4 +1,8 @@
 import type { MusicTrack } from './types.js'
+import { readLimitedBuffer, readLimitedText } from '../../shared/limited-response.js'
+
+const MAX_TEXT_RESPONSE_BYTES = 2 * 1024 * 1024
+const MAX_BINARY_RESPONSE_BYTES = 8 * 1024 * 1024
 
 export interface UnknownRecord { [key: string]: unknown }
 
@@ -112,12 +116,19 @@ async function requestUpstream(url: string, options: MusicRequestInit): Promise<
 }
 
 export async function requestText(url: string, options: MusicRequestInit = {}): Promise<string> {
-  return (await requestUpstream(url, options)).text()
+  return readLimitedText(
+    await requestUpstream(url, options),
+    MAX_TEXT_RESPONSE_BYTES,
+    '音乐上游响应过大'
+  )
 }
 
 export async function requestBuffer(url: string, options: MusicRequestInit = {}): Promise<Buffer> {
-  const response = await requestUpstream(url, options)
-  return Buffer.from(await response.arrayBuffer())
+  return readLimitedBuffer(
+    await requestUpstream(url, options),
+    MAX_BINARY_RESPONSE_BYTES,
+    '音乐上游二进制响应过大'
+  )
 }
 
 export async function requestJson(url: string, options: MusicRequestInit = {}): Promise<unknown> {

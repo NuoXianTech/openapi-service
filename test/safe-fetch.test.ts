@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { readLimitedText } from '../src/shared/limited-response.js'
+import { readLimitedBuffer, readLimitedText } from '../src/shared/limited-response.js'
 import {
   isHostnameWithin,
   safeFetch
@@ -86,6 +86,32 @@ describe('safe fetch', () => {
 
   it('rejects response bodies over the configured byte limit', async () => {
     await expect(readLimitedText(new Response('12345'), 4))
+      .rejects.toThrow('response is too large')
+  })
+
+  it('preserves raw bytes while reading a limited binary response', async () => {
+    const bytes = Uint8Array.from([0, 255, 128, 13, 10])
+    await expect(readLimitedBuffer(new Response(bytes), bytes.byteLength))
+      .resolves.toEqual(Buffer.from(bytes))
+  })
+
+  it('rejects a binary response over the limit from content length', async () => {
+    const response = new Response(Uint8Array.from([1, 2, 3]), {
+      headers: { 'content-length': '3' }
+    })
+    await expect(readLimitedBuffer(response, 2))
+      .rejects.toThrow('response is too large')
+  })
+
+  it('rejects a binary response when streamed chunks exceed the limit', async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(Uint8Array.from([1, 2]))
+        controller.enqueue(Uint8Array.from([3]))
+        controller.close()
+      }
+    })
+    await expect(readLimitedBuffer(new Response(stream), 2))
       .rejects.toThrow('response is too large')
   })
 })

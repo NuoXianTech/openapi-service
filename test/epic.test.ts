@@ -127,6 +127,29 @@ describe('epic module', () => {
     expect(request.mock.calls[0]?.[1]).toMatchObject({ redirect: 'error' })
   })
 
+  it('keeps a shared upstream request alive when one caller aborts', async () => {
+    let resolveResponse!: (response: Response) => void
+    const response = new Promise<Response>((resolve) => {
+      resolveResponse = resolve
+    })
+    const request = vi.fn().mockReturnValue(response)
+    vi.stubGlobal('fetch', request)
+    const controller = new AbortController()
+
+    const aborted = getEpicFreeGames(controller.signal)
+    const completed = getEpicFreeGames()
+    controller.abort(new Error('caller cancelled'))
+
+    await expect(aborted).rejects.toThrow('caller cancelled')
+    resolveResponse(new Response(JSON.stringify(payload([game({
+      id: 'shared', title: '共享请求', upcoming: true,
+      start: '2099-01-01T00:00:00Z', end: '2099-01-08T00:00:00Z'
+    })]))))
+    await expect(completed).resolves.toHaveLength(1)
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(request.mock.calls[0]?.[1]?.signal).not.toBe(controller.signal)
+  })
+
   it('escapes untrusted text in Markdown output', () => {
     const item: EpicFreeGame = {
       id: 'test', title: '测试 [游戏]',
