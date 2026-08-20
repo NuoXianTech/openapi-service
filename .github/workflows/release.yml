@@ -81,6 +81,9 @@ jobs:
         run: pnpm test
 
       - name: Build production server
+        env:
+          SERVICE_VERSION: ${{ steps.version.outputs.number }}
+          SERVICE_COMMIT: ${{ github.sha }}
         run: pnpm build
 
       - name: Package prebuilt server
@@ -117,11 +120,17 @@ jobs:
 
           tar -tzf "release/${archive_name}" > "$contents_file"
           grep -Fxq "${package_name}/dist/index.js" "$contents_file"
+          grep -Fxq "${package_name}/dist/build-info.json" "$contents_file"
           grep -Fxq "${package_name}/resources/" "$contents_file"
           grep -Fxq "${package_name}/package.json" "$contents_file"
           grep -Fxq "${package_name}/pnpm-lock.yaml" "$contents_file"
           grep -Fxq "${package_name}/docker-compose.yml" "$contents_file"
           grep -Fxq "${package_name}/.env.example" "$contents_file"
+          jq -e \
+            --arg version "$VERSION" \
+            --arg commit "$GITHUB_SHA" \
+            '.version == $version and .commit == $commit' \
+            dist/build-info.json
           (
             cd release
             sha256sum --check checksums.txt

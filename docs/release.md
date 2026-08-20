@@ -1,6 +1,6 @@
 # API Service 版本发布流程
 
-本文定义 `openapi-service` 的版本、Git Tag、GitHub Release、GHCR 镜像以及与 Platform 协同发布的流程。首个正式公开版本为 `0.1.0`。
+本文定义 `openapi-service` 的版本、Git Tag、GitHub Release 和 GHCR 镜像发布流程。Service 与 Platform 独立发布，版本号不建立对应关系。首个正式公开版本为 `0.1.0`。
 
 ## 1. 发布通道
 
@@ -94,25 +94,19 @@ git push origin v0.1.0
 - `ghcr.io/nuoxiantech/openapi-service:0.1.0` 多架构镜像。
 - 浮动的 `latest` 标签仍按现有主线发布规则正常生成；生产部署固定使用 `0.1.0` 或镜像 digest。
 
-## 7. 与 Platform 同步发布 0.1.0
+## 7. 与 Platform 的兼容验证
 
-两个仓库是独立部署单元，但首次版本建议按以下顺序同步发布：
+Service 与 Platform 是独立部署和发布单元，版本号不建立对应关系。Service 可以因业务接口新增、修复或运行时优化单独发布；Platform 也可以在不发布 Service 的情况下升级。
 
-1. 先发布并验证 `openapi-service:v0.1.0`。
-2. Platform 的版本工作流默认使用同名 Service Tag；如需验证其他兼容版本，设置 Repository Variable `OPENAPI_SERVICE_REF` 为不可变 Tag 或 Commit。
-3. 在 `openapi-platform` 完成 `0.1.0` 发布门禁和数据库迁移审查。
-4. 创建并推送 Platform 的 `v0.1.0` Tag。
-5. 等待 Platform 的 GitHub Release、GHCR 镜像和 Platform → Service 验收测试全部成功。
-
-不要在两个仓库中同时推送 Tag 后再观察结果。先完成 Service 可以确保 Platform Release 使用的兼容上游已经存在且不可变。
+每次发布只需确认目标组合使用兼容的 `openapi-platform-service/v1` 控制协议，并通过 Platform → Service 集成测试。Platform 工作流验证 Service 当前 `main`，不会根据 Platform 版本选择 Service Tag。
 
 ## 8. 生产发布顺序
 
-首次部署：
+首次部署（示例版本号仅代表各自当前发布版本）：
 
 1. 创建私有网络和 Service Token。
-2. 启动 Service `0.1.0`，验证 `/healthz` 与 `/readyz`。
-3. 部署 Platform `0.1.0` 并应用其数据库迁移。
+2. 启动选定的 Service 版本，验证 `/healthz` 与 `/readyz`。
+3. 部署选定的 Platform 版本并应用其数据库迁移。
 4. 在 Platform 管理后台创建 Internal Upstream、填写 Token、执行发现和配置同步。
 5. 发布 Endpoint 并验证 API Key、日志、统计和积分。
 
@@ -124,4 +118,4 @@ git push origin v0.1.0
 - Service 配置问题：由 Platform 重新同步上一期望配置。
 - Platform 问题：按 Platform 自己的数据库和应用回滚流程处理。
 
-保留以下发布记录：Tag、Commit、GitHub Actions 链接、镜像 digest、压缩包 SHA-256、Platform 兼容引用和生产验证结果。
+保留以下发布记录：Tag、Commit、GitHub Actions 链接、镜像 digest、压缩包 SHA-256、控制协议版本、集成测试和生产验证结果。

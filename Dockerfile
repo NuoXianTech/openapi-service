@@ -9,19 +9,20 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY tsconfig.json tsconfig.build.json ./
+COPY scripts ./scripts
 COPY src ./src
 COPY resources ./resources
-RUN pnpm build && pnpm prune --prod
+ARG SERVICE_VERSION
+ARG SERVICE_COMMIT
+RUN SERVICE_VERSION="$SERVICE_VERSION" \
+  SERVICE_COMMIT="$SERVICE_COMMIT" \
+  pnpm build \
+  && pnpm prune --prod
 
 FROM node:24-alpine AS runtime
 
-ARG SERVICE_VERSION=dev
-ARG SERVICE_COMMIT=unknown
-
 ENV NODE_ENV=production \
-  SERVICE_DATA_DIR=/app/data \
-  SERVICE_VERSION=$SERVICE_VERSION \
-  SERVICE_COMMIT=$SERVICE_COMMIT
+  SERVICE_DATA_DIR=/app/data
 WORKDIR /app
 
 COPY --from=build --chown=node:node /app/package.json ./package.json

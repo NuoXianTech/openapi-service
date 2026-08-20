@@ -1,5 +1,6 @@
 import { join, resolve } from 'node:path'
 import { z } from 'zod'
+import { buildInfo, type BuildInfo } from './build-info.js'
 
 const READ_HEADER_TIMEOUT_MS = 5_000
 const REQUEST_TIMEOUT_MS = 20_000
@@ -50,7 +51,7 @@ const environmentSchema = z.object({
     .default('openapi-service'),
   SERVICE_NAME: z.string().trim().min(1).max(160).default('OpenAPI Service'),
   SERVICE_VERSION: z.string().trim().min(1).optional(),
-  SERVICE_COMMIT: z.string().trim().min(1).default('unknown')
+  SERVICE_COMMIT: z.string().trim().min(1).optional()
 })
 
 export interface ServiceConfig {
@@ -72,7 +73,8 @@ export interface ServiceConfig {
 }
 
 export function loadConfig(
-  environment: NodeJS.ProcessEnv = process.env
+  environment: NodeJS.ProcessEnv = process.env,
+  metadata: BuildInfo = buildInfo
 ): ServiceConfig {
   const parsed = environmentSchema.parse(environment)
   const listenAddress = parseListenAddress(parsed.LISTEN_ADDR)
@@ -96,8 +98,9 @@ export function loadConfig(
     serviceId: parsed.SERVICE_ID,
     serviceName: parsed.SERVICE_NAME,
     version: parsed.SERVICE_VERSION
+      ?? metadata.version
       ?? (environment.npm_package_version?.trim() || 'dev'),
-    commit: parsed.SERVICE_COMMIT
+    commit: parsed.SERVICE_COMMIT ?? metadata.commit ?? 'unknown'
   }
 }
 

@@ -26,6 +26,7 @@ describe('loadConfig', () => {
     expect(config.serviceId).toBe('openapi-service')
     expect(config.serviceName).toBe('OpenAPI Service')
     expect(config.version).toBe('dev')
+    expect(config.commit).toBe('unknown')
     expect(config.configurationFile).toBe(
       join(dataDirectory, 'runtime', 'service-configuration.enc')
     )
@@ -91,5 +92,29 @@ describe('loadConfig', () => {
     })
 
     expect(config.version).toBe('0.1.0')
+  })
+
+  it('uses embedded build metadata unless deployment overrides it', () => {
+    const embedded = loadConfig({
+      API_SERVICE_TOKEN: currentToken,
+      SERVICE_CONFIG_KEY: currentConfigurationKey
+    }, {
+      version: '0.1.1',
+      commit: 'build-commit'
+    })
+    const overridden = loadConfig({
+      API_SERVICE_TOKEN: currentToken,
+      SERVICE_CONFIG_KEY: currentConfigurationKey,
+      SERVICE_VERSION: 'custom-version',
+      SERVICE_COMMIT: 'custom-commit'
+    }, {
+      version: '0.1.1',
+      commit: 'build-commit'
+    })
+
+    expect(embedded.version).toBe('0.1.1')
+    expect(embedded.commit).toBe('build-commit')
+    expect(overridden.version).toBe('custom-version')
+    expect(overridden.commit).toBe('custom-commit')
   })
 })

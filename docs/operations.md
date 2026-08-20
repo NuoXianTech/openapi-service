@@ -30,7 +30,7 @@ SERVICE_DATA_DIR=data
 
 `.env.example` 列出以上六个管理员可配置项。`SERVICE_CONFIG_KEY` 必须与 `API_SERVICE_TOKEN` 分别生成，并与运行快照一起备份；已有快照后不能直接替换。`SERVICE_ID` 只允许小写字母、数字以及分隔符 `.`, `_`, `-`，最大 120 个字符。它同时参与配置快照归属和 Platform 契约校验：同一 Internal Upstream 的全部 Target 必须使用相同值；已有快照或已经被 Platform 发现后不得随意修改。`SERVICE_NAME` 是展示名称，最大 160 个字符。
 
-`SERVICE_VERSION` 与 `SERVICE_COMMIT` 是官方镜像在构建阶段注入的观测信息，不属于管理员日常运行配置，因此不放入模板。
+`SERVICE_VERSION` 与 `SERVICE_COMMIT` 是构建阶段写入 `dist/build-info.json` 的观测信息，官方镜像和 GitHub Release 预构建包都会携带。它们不属于管理员日常运行配置，因此不放入模板；仅在自定义构建确有需要时才通过同名环境变量显式覆盖。
 
 以下限制固定在代码中，不再暴露环境变量：
 
