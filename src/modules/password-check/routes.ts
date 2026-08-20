@@ -1,7 +1,13 @@
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi'
 import { createBodyLimitMiddleware } from '../../http/middleware/request-limits.js'
 import { ApiErrorResponseSchema, createSuccessEnvelopeSchema } from '../../shared/openapi.js'
-import { respondWithFailure, respondWithSuccess } from '../../shared/response.js'
+import { respondWithFailure } from '../../shared/response.js'
+import {
+  OutputEncodingQuerySchema,
+  parseOutputEncoding,
+  respondWithEncoded,
+  respondWithInvalidEncoding
+} from '../../shared/output-encoding.js'
 import type { AppEnv } from '../../http/types.js'
 import {
   checkPasswordStrength,
@@ -29,9 +35,7 @@ const route = createRoute({
   operationId: 'checkPasswordStrength', tags: ['Password'],
   security: [{ serviceToken: [] }],
   request: {
-    query: z.object({
-      encode: z.string().optional(), encoding: z.string().optional()
-    }),
+    query: OutputEncodingQuerySchema,
     body: {
       required: true,
       content: { 'application/json': { schema: z.unknown() } }
@@ -59,23 +63,17 @@ export function registerPasswordCheckRoutes(app: OpenAPIHono<AppEnv>) {
     c.header('cache-control', 'no-store')
     c.header('pragma', 'no-cache')
     const query = c.req.valid('query')
-    const encoding = (query.encode ?? query.encoding ?? 'json').toLowerCase()
-    if (!['json', 'text', 'markdown', 'md'].includes(encoding)) {
-      return respondWithFailure(
-        c, 400, 'INVALID_ENCODING',
-        'encode 必须是 json、text、markdown 或 md'
-      ) as never
-    }
+    const encoding = parseOutputEncoding(query)
+    if (!encoding) return respondWithInvalidEncoding(c) as never
     const parsed = parsePasswordCheckBody(c.req.valid('json'))
     if (!parsed.ok) {
       return respondWithFailure(c, 400, parsed.code, parsed.message) as never
     }
     const result = checkPasswordStrength(parsed.password)
-    if (encoding === 'text') return c.text(formatPasswordCheckText(result)) as never
-    if (encoding === 'markdown' || encoding === 'md') {
-      c.header('content-type', 'text/markdown; charset=UTF-8')
-      return c.body(formatPasswordCheckMarkdown(result)) as never
-    }
-    return respondWithSuccess(c, result, '密码强度检测成功')
+    return respondWithEncoded(c, encoding, result, {
+      message: '密码强度检测成功',
+      text: formatPasswordCheckText,
+      markdown: formatPasswordCheckMarkdown
+    }) as never
   })
 }

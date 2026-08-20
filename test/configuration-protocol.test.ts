@@ -302,6 +302,37 @@ describe('service configuration protocol', () => {
     })
   })
 
+  it('does not persist or activate a revision rejected by a listener', async () => {
+    const save = vi.fn<(snapshot: PersistedConfigurationSnapshot) => Promise<void>>()
+      .mockResolvedValue(undefined)
+    const manager = new ServiceConfigurationManager({
+      serviceId: config.serviceId,
+      definition: serviceConfigurationDefinition,
+      store: { load: async () => null, save }
+    })
+    let rejectNext = true
+    manager.subscribe(() => {
+      if (rejectNext) {
+        rejectNext = false
+        throw new Error('configuration consumer rejected the revision')
+      }
+    })
+    const values = {
+      'ip.enabled': true,
+      'ip.databaseKey': 'retryable-value'
+    }
+
+    await expect(manager.apply(1, values)).rejects.toThrow(
+      'configuration consumer rejected the revision'
+    )
+    expect(save).not.toHaveBeenCalled()
+    expect(manager.getSnapshot().revision).toBe(0)
+
+    await expect(manager.apply(1, values)).resolves.toMatchObject({ revision: 1 })
+    expect(save).toHaveBeenCalledOnce()
+    expect(manager.getSnapshot().revision).toBe(1)
+  })
+
   it('encrypts the local runtime snapshot and restores it', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'openapi-config-'))
     tempDirectories.push(directory)

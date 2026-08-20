@@ -55,7 +55,6 @@ export function registerQqAvatarRoutes(app: OpenAPIHono<AppEnv>) {
       ) as never
     }
     const data = createQqAvatarData(qq, size)
-    c.header('access-control-allow-origin', '*')
     c.header('cache-control', 'public, max-age=86400')
     if (type === 'image') return c.redirect(data.url, 302) as never
     return respondWithSuccess(

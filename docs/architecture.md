@@ -32,17 +32,16 @@ X-OpenAPI-Route-Id: ...
 
 ```text
 src/
-├── index.ts
 ├── app.ts
-├── config/
+├── config.ts
+├── index.ts
+├── runtime-state.ts
 ├── configuration/
 ├── contracts/
 ├── http/
 ├── modules/
 │   └── <module>/
-├── runtime/
-├── shared/
-└── types/
+└── shared/
 
 resources/
 ├── player/DPlayer.min.js
@@ -53,11 +52,9 @@ data/                              # 本地忽略，不进入镜像源码层
 └── runtime/                       # Service 可写持久化状态
 
 test/
-├── public-routes.test.ts
-├── ip-database.test.ts
+├── <module>.test.ts
 ├── system-routes.test.ts
 ├── request-pipeline.test.ts
-├── http-smoke.test.ts
 └── contracts/
 ```
 
@@ -65,13 +62,16 @@ test/
 
 目录规则保持单向且最小：
 
-- `config/` 只解析进程与部署环境；业务 Cookie、密钥和开关不得放入这里。
+- `config.ts` 只解析进程与部署环境；业务 Cookie、密钥和开关不得放入这里。
 - `configuration/` 实现与业务无关的 Schema、快照、Revision、脱敏和持久化协议。
 - `contracts/` 是 HTTP/OpenAPI 契约，`http/` 只处理传输层、中间件与错误映射。
 - `modules/<name>/` 纵向拥有某个业务接口的 Route、业务逻辑、资产访问和可选配置声明。
+- 复杂模块可以在自己的目录内按解析、网络访问和编排拆分；这种局部拆分不构成其他模块必须遵循的框架。
 - 仓库 `resources/` 只放允许随源码分发的内置资源；`SERVICE_DATA_DIR/assets/<module-id>` 只放运维外挂且不能提交 Git 的数据。二者不能互相回退或覆盖。
 - `shared/` 只收纳至少已有两个生产调用方的无业务语义工具；没有第二个调用方时留在模块内。
 - 禁止新增 Repository/Provider/Adapter 基类、运行时插件注册表或依赖注入容器；只有出现真实替换需求时才引入接口。
+
+公开 CORS 由 Platform Gateway 统一添加，包括成功、重定向和错误响应。Service 模块不得自行写入 `Access-Control-*` 响应头。
 
 ## 4. 业务模块
 

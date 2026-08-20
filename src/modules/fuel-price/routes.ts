@@ -1,6 +1,12 @@
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi'
 import { ApiErrorResponseSchema, createSuccessEnvelopeSchema } from '../../shared/openapi.js'
 import { respondWithFailure, respondWithSuccess } from '../../shared/response.js'
+import {
+  OutputEncodingQuerySchema,
+  parseOutputEncoding,
+  respondWithEncoded,
+  respondWithInvalidEncoding
+} from '../../shared/output-encoding.js'
 import type { AppEnv } from '../../http/types.js'
 import {
   findFuelRegion,
@@ -26,9 +32,8 @@ const DataSchema = z.object({
 const priceRoute = createRoute({
   method: 'get', path: '/v1/fuel-price', operationId: 'getFuelPrice',
   tags: ['Fuel Price'], security: [{ serviceToken: [] }],
-  request: { query: z.object({
-    region: z.string().optional(), encode: z.string().optional(),
-    encoding: z.string().optional(), 'force-update': z.string().optional()
+  request: { query: OutputEncodingQuerySchema.extend({
+    region: z.string().optional(), 'force-update': z.string().optional()
   }) },
   responses: {
     200: { content: {
@@ -65,21 +70,17 @@ export function registerFuelPriceRoutes(app: OpenAPIHono<AppEnv>) {
     const region = findFuelRegion(keyword)
     if (!region) return respondWithFailure(c, 400, 'UNSUPPORTED_REGION', `暂不支持 ${keyword} 区域查询`) as never
     const forceUpdate = booleanFlag(query['force-update'])
+    const encoding = parseOutputEncoding(query)
+    if (!encoding) return respondWithInvalidEncoding(c) as never
     try {
       const data = await getFuelPriceData(region, forceUpdate, c.get('deadlineSignal'))
-      const encoding = (query.encode ?? query.encoding ?? '').toLowerCase()
       const cacheControl = forceUpdate ? 'no-store' : 'public, max-age=3600'
-      c.header('access-control-allow-origin', '*')
-      if (encoding === 'text') {
-        c.header('cache-control', cacheControl)
-        return c.text(formatFuelPriceText(data)) as never
-      }
-      if (encoding === 'markdown' || encoding === 'md') {
-        c.header('cache-control', cacheControl)
-        c.header('content-type', 'text/markdown; charset=UTF-8')
-        return c.body(formatFuelPriceMarkdown(data)) as never
-      }
-      return respondWithSuccess(c, data, '获取油价成功', cacheControl)
+      return respondWithEncoded(c, encoding, data, {
+        message: '获取油价成功',
+        text: formatFuelPriceText,
+        markdown: formatFuelPriceMarkdown,
+        cacheControl
+      }) as never
     } catch (error) {
       if (c.get('deadlineSignal').aborted) throw c.get('deadlineSignal').reason
       const message = error instanceof Error ? error.message : '获取油价失败'

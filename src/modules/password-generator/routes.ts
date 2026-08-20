@@ -1,6 +1,12 @@
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi'
 import { ApiErrorResponseSchema, createSuccessEnvelopeSchema } from '../../shared/openapi.js'
-import { respondWithFailure, respondWithSuccess } from '../../shared/response.js'
+import { respondWithFailure } from '../../shared/response.js'
+import {
+  OutputEncodingQuerySchema,
+  parseOutputEncoding,
+  respondWithEncoded,
+  respondWithInvalidEncoding
+} from '../../shared/output-encoding.js'
 import type { AppEnv } from '../../http/types.js'
 import {
   formatPasswordGeneratorMarkdown,
@@ -12,9 +18,8 @@ import {
 const route = createRoute({
   method: 'get', path: '/v1/password', operationId: 'generatePassword',
   tags: ['Password'], security: [{ serviceToken: [] }],
-  request: { query: z.object({
+  request: { query: OutputEncodingQuerySchema.extend({
     length: z.string().optional(), mode: z.string().optional(),
-    encode: z.string().optional(), encoding: z.string().optional()
   }) },
   responses: {
     200: { content: {
@@ -51,19 +56,13 @@ export function registerPasswordGeneratorRoutes(app: OpenAPIHono<AppEnv>) {
         'mode 仅支持 strong、alphanumeric 或 numeric'
       ) as never
     }
-    const encoding = (query.encode ?? query.encoding ?? 'json').toLowerCase()
-    if (!['json', 'text', 'markdown', 'md'].includes(encoding)) {
-      return respondWithFailure(
-        c, 400, 'INVALID_ENCODING',
-        'encode 必须是 json、text、markdown 或 md'
-      ) as never
-    }
+    const encoding = parseOutputEncoding(query)
+    if (!encoding) return respondWithInvalidEncoding(c) as never
     const result = generatePassword({ length, mode })
-    if (encoding === 'text') return c.text(result.password) as never
-    if (encoding === 'markdown' || encoding === 'md') {
-      c.header('content-type', 'text/markdown; charset=UTF-8')
-      return c.body(formatPasswordGeneratorMarkdown(result)) as never
-    }
-    return respondWithSuccess(c, result, '随机密码生成成功')
+    return respondWithEncoded(c, encoding, result, {
+      message: '随机密码生成成功',
+      text: data => data.password,
+      markdown: formatPasswordGeneratorMarkdown
+    }) as never
   })
 }

@@ -1,6 +1,14 @@
 import type { MusicLyrics, MusicOperation, MusicPlatform, MusicTrack, PublicMusicTrack } from './types.js'
+import { isHostnameWithin } from '../../shared/safe-fetch.js'
 
 const LRC_LINE_RE = /^\[(\d{1,3}):(\d{2}(?:\.\d+)?)\](.*)$/
+const MUSIC_RESOURCE_HOSTS: Record<MusicPlatform, readonly string[]> = {
+  netease: ['music.126.net'],
+  tencent: ['qqmusic.qq.com', 'gtimg.cn'],
+  kugou: ['kugou.com'],
+  baidu: ['91q.com', 'taihe.com', 'dmhmusic.com', 'baidu.com'],
+  kuwo: ['kuwo.cn']
+}
 
 function buildMusicResourceLink(
   requestUrl: URL,
@@ -49,7 +57,15 @@ export function normalizeMusicRedirectUrl(platform: MusicPlatform, value: string
 
   try {
     const url = new URL(normalized)
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    if (
+      url.protocol !== 'https:'
+      || url.username
+      || url.password
+      || (url.port && url.port !== '443')
+      || !MUSIC_RESOURCE_HOSTS[platform].some(host => (
+        isHostnameWithin(url.hostname, host)
+      ))
+    ) return null
     if (platform === 'netease' && url.searchParams.has('vuutv')) url.search = ''
     return url.toString()
   } catch {

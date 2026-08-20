@@ -3,15 +3,19 @@ import {
   ApiErrorResponseSchema,
   createSuccessEnvelopeSchema
 } from '../../shared/openapi.js'
-import { respondWithFailure, respondWithSuccess } from '../../shared/response.js'
+import { respondWithFailure } from '../../shared/response.js'
+import {
+  OutputEncodingQuerySchema,
+  parseOutputEncoding,
+  respondWithEncoded,
+  respondWithInvalidEncoding
+} from '../../shared/output-encoding.js'
 import type { AppEnv } from '../../http/types.js'
 import {
   createBingMarkdown,
   getBingImage,
-  isBingEncode,
   isBingImageType,
   resolveBingCoverUrl,
-  type BingEncode,
   type BingImageType
 } from './service.js'
 
@@ -34,9 +38,7 @@ const bingRoute = createRoute({
   tags: ['Bing'],
   security: [{ serviceToken: [] }],
   request: {
-    query: z.object({
-      encode: z.string().optional(),
-      encoding: z.string().optional(),
+    query: OutputEncodingQuerySchema.extend({
       type: z.string().optional()
     })
   },
@@ -57,11 +59,6 @@ const bingRoute = createRoute({
   }
 })
 
-function parseEncode(value: string): BingEncode {
-  const normalized = value.trim().toLowerCase()
-  return isBingEncode(normalized) ? normalized : 'json'
-}
-
 function parseImageType(value: string): BingImageType {
   const normalized = value.trim().toLowerCase()
   return isBingImageType(normalized) ? normalized : 'auto'
@@ -70,7 +67,8 @@ function parseImageType(value: string): BingImageType {
 export function registerBingRoutes(app: OpenAPIHono<AppEnv>) {
   app.openapi(bingRoute, async (c) => {
     const query = c.req.valid('query')
-    const encode = parseEncode(query.encode ?? query.encoding ?? '')
+    const encode = parseOutputEncoding(query, ['image', 'image-4k'] as const)
+    if (!encode) return respondWithInvalidEncoding(c) as never
     const imageType = parseImageType(query.type ?? '')
     const signal = c.get('deadlineSignal')
     try {
@@ -84,25 +82,24 @@ export function registerBingRoutes(app: OpenAPIHono<AppEnv>) {
         )
       }
       const cacheControl = 'public, max-age=3600'
-      c.header('access-control-allow-origin', '*')
-      c.header('cache-control', cacheControl)
       if (encode === 'image' || encode === 'image-4k') {
+        c.header('cache-control', cacheControl)
         return c.redirect(
           encode === 'image-4k' ? data.cover_4k : record.cover,
           302
         ) as never
       }
-      if (encode === 'text') return c.text(record.cover) as never
-      if (encode === 'markdown' || encode === 'md') {
-        c.header('content-type', 'text/markdown; charset=UTF-8')
-        return c.body(createBingMarkdown(record)) as never
-      }
-      return respondWithSuccess(
+      return respondWithEncoded(
         c,
+        encode,
         record,
-        '获取必应每日壁纸成功',
-        cacheControl
-      )
+        {
+          message: '获取必应每日壁纸成功',
+          text: item => item.cover,
+          markdown: createBingMarkdown,
+          cacheControl
+        }
+      ) as never
     } catch (error) {
       if (signal.aborted) throw signal.reason
       const message = error instanceof Error

@@ -1,6 +1,12 @@
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi'
 import { ApiErrorResponseSchema, createSuccessEnvelopeSchema } from '../../shared/openapi.js'
-import { respondWithFailure, respondWithSuccess } from '../../shared/response.js'
+import { respondWithFailure } from '../../shared/response.js'
+import {
+  OutputEncodingQuerySchema,
+  parseOutputEncoding,
+  respondWithEncoded,
+  respondWithInvalidEncoding
+} from '../../shared/output-encoding.js'
 import type { AppEnv } from '../../http/types.js'
 import {
   formatExchangeRateMarkdown,
@@ -18,9 +24,8 @@ const route = createRoute({
   method: 'get', path: '/v1/exchange-rate',
   operationId: 'getExchangeRates', tags: ['Exchange Rate'],
   security: [{ serviceToken: [] }],
-  request: { query: z.object({
-    currency: z.string().optional(), encode: z.string().optional(),
-    encoding: z.string().optional()
+  request: { query: OutputEncodingQuerySchema.extend({
+    currency: z.string().optional()
   }) },
   responses: {
     200: { content: {
@@ -38,20 +43,17 @@ export function registerExchangeRateRoutes(app: OpenAPIHono<AppEnv>) {
     const query = c.req.valid('query')
     const currency = normalizeCurrencyCode(query.currency ?? 'CNY')
     if (!currency) return respondWithFailure(c, 400, 'INVALID_CURRENCY', 'currency 必须是 ISO 4217 三位货币代码') as never
+    const encoding = parseOutputEncoding(query)
+    if (!encoding) return respondWithInvalidEncoding(c) as never
     try {
       const data = await getExchangeRates(currency)
-      const encoding = (query.encode ?? query.encoding ?? '').toLowerCase()
       const cacheControl = 'public, max-age=3600'
-      if (encoding === 'text') {
-        c.header('cache-control', cacheControl)
-        return c.text(formatExchangeRateText(data)) as never
-      }
-      if (encoding === 'markdown' || encoding === 'md') {
-        c.header('cache-control', cacheControl)
-        c.header('content-type', 'text/markdown; charset=UTF-8')
-        return c.body(formatExchangeRateMarkdown(data)) as never
-      }
-      return respondWithSuccess(c, data, '获取汇率成功', cacheControl)
+      return respondWithEncoded(c, encoding, data, {
+        message: '获取汇率成功',
+        text: formatExchangeRateText,
+        markdown: formatExchangeRateMarkdown,
+        cacheControl
+      }) as never
     } catch (error) {
       const message = error instanceof Error ? error.message : '获取汇率失败'
       return respondWithFailure(c, 502, 'UPSTREAM_ERROR', `获取汇率失败：${message}`)

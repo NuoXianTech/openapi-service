@@ -3,7 +3,13 @@ import {
   ApiErrorResponseSchema,
   createSuccessEnvelopeSchema
 } from '../../shared/openapi.js'
-import { respondWithFailure, respondWithSuccess } from '../../shared/response.js'
+import { respondWithFailure } from '../../shared/response.js'
+import {
+  OutputEncodingQuerySchema,
+  parseOutputEncoding,
+  respondWithEncoded,
+  respondWithInvalidEncoding
+} from '../../shared/output-encoding.js'
 import type { AppEnv } from '../../http/types.js'
 import {
   formatEpicMarkdown,
@@ -33,10 +39,7 @@ const route = createRoute({
   tags: ['Epic'],
   security: [{ serviceToken: [] }],
   request: {
-    query: z.object({
-      encode: z.string().optional(),
-      encoding: z.string().optional()
-    })
+    query: OutputEncodingQuerySchema
   },
   responses: {
     200: {
@@ -59,26 +62,22 @@ const route = createRoute({
 export function registerEpicRoutes(app: OpenAPIHono<AppEnv>) {
   app.openapi(route, async (c) => {
     const query = c.req.valid('query')
-    const encoding = (query.encode ?? query.encoding ?? '')
-      .trim().toLowerCase()
+    const encoding = parseOutputEncoding(query)
+    if (!encoding) return respondWithInvalidEncoding(c) as never
     try {
       const games = await getEpicFreeGames(c.get('deadlineSignal'))
       const cacheControl = 'public, max-age=300'
-      if (encoding === 'text') {
-        c.header('cache-control', cacheControl)
-        return c.text(formatEpicText(games)) as never
-      }
-      if (encoding === 'markdown' || encoding === 'md') {
-        c.header('cache-control', cacheControl)
-        c.header('content-type', 'text/markdown; charset=UTF-8')
-        return c.body(formatEpicMarkdown(games)) as never
-      }
-      return respondWithSuccess(
+      return respondWithEncoded(
         c,
+        encoding,
         games,
-        '获取 Epic 免费游戏成功',
-        cacheControl
-      )
+        {
+          message: '获取 Epic 免费游戏成功',
+          text: formatEpicText,
+          markdown: formatEpicMarkdown,
+          cacheControl
+        }
+      ) as never
     } catch (error) {
       const message = error instanceof Error
         ? error.message

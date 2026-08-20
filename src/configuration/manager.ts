@@ -191,10 +191,10 @@ export class ServiceConfigurationManager {
       )
     }
 
-    await this.#store?.save(next)
     const previous = this.#snapshot
-    this.#snapshot = next
     for (const listener of this.#listeners) listener(next, previous)
+    await this.#store?.save(next)
+    this.#snapshot = next
     return this.getSnapshot()
   }
 

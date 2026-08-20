@@ -72,7 +72,9 @@ describe('fuel price module', () => {
     expect(cached.updated_at).toBe(first.updated_at)
     expect(request).toHaveBeenCalledTimes(2)
     expect(request.mock.calls[0]?.[1]).toMatchObject({
-      headers: { 'User-Agent': expect.any(String) }
+      headers: { 'User-Agent': expect.any(String) },
+      redirect: 'error',
+      signal: expect.any(AbortSignal)
     })
     expect(formatFuelPriceMarkdown(first)).toContain('- **92号汽油**')
   })

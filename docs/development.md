@@ -24,7 +24,7 @@ pnpm build
 1. 定义稳定输入、输出和错误码。
 2. 需要外部来源时建立普通 Source Client。
 3. 使用 `createRoute` 与 Zod 定义 Endpoint。
-4. JSON 成功响应使用 `respondWithSuccess`，错误使用 `respondWithFailure`；不要手写另一套响应壳。
+4. JSON 成功响应使用 `respondWithSuccess`，错误使用 `respondWithFailure`；不要手写另一套响应壳。接口同时支持 JSON、Text 和 Markdown 时，复用 `OutputEncodingQuerySchema`、`parseOutputEncoding`、`respondWithEncoded` 和 `respondWithInvalidEncoding`。
 5. 在 `src/modules/index.ts` 显式注册。
 6. 补充单元、HTTP、Fixture 和 OpenAPI 测试。
 7. 发布 Service。

@@ -1,6 +1,12 @@
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi'
 import { ApiErrorResponseSchema, createSuccessEnvelopeSchema } from '../../shared/openapi.js'
-import { respondWithFailure, respondWithSuccess } from '../../shared/response.js'
+import { respondWithFailure } from '../../shared/response.js'
+import {
+  OutputEncodingQuerySchema,
+  parseOutputEncoding,
+  respondWithEncoded,
+  respondWithInvalidEncoding
+} from '../../shared/output-encoding.js'
 import type { AppEnv } from '../../http/types.js'
 import { formatGoldPriceMarkdown, formatGoldPriceText, getGoldPrice } from './service.js'
 
@@ -24,9 +30,7 @@ const DataSchema = z.object({
 const route = createRoute({
   method: 'get', path: '/v1/gold-price', operationId: 'getGoldPrice',
   tags: ['Gold Price'], security: [{ serviceToken: [] }],
-  request: { query: z.object({
-    encode: z.string().optional(), encoding: z.string().optional()
-  }) },
+  request: { query: OutputEncodingQuerySchema },
   responses: {
     200: { content: {
       'application/json': { schema: createSuccessEnvelopeSchema(DataSchema) },
@@ -39,21 +43,17 @@ const route = createRoute({
 
 export function registerGoldPriceRoutes(app: OpenAPIHono<AppEnv>) {
   app.openapi(route, async (c) => {
+    const encoding = parseOutputEncoding(c.req.valid('query'))
+    if (!encoding) return respondWithInvalidEncoding(c) as never
     try {
       const data = await getGoldPrice(c.get('deadlineSignal'))
-      const query = c.req.valid('query')
-      const encoding = (query.encode ?? query.encoding ?? '').toLowerCase()
       const cacheControl = 'public, max-age=60'
-      if (encoding === 'text') {
-        c.header('cache-control', cacheControl)
-        return c.text(formatGoldPriceText(data)) as never
-      }
-      if (encoding === 'markdown' || encoding === 'md') {
-        c.header('cache-control', cacheControl)
-        c.header('content-type', 'text/markdown; charset=UTF-8')
-        return c.body(formatGoldPriceMarkdown(data)) as never
-      }
-      return respondWithSuccess(c, data, '获取贵金属价格成功', cacheControl)
+      return respondWithEncoded(c, encoding, data, {
+        message: '获取贵金属价格成功',
+        text: formatGoldPriceText,
+        markdown: formatGoldPriceMarkdown,
+        cacheControl
+      }) as never
     } catch (error) {
       if (c.get('deadlineSignal').aborted) throw c.get('deadlineSignal').reason
       const message = error instanceof Error ? error.message : '获取贵金属价格失败'

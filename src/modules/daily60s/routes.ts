@@ -5,8 +5,13 @@ import {
 } from '../../shared/openapi.js'
 import {
   respondWithFailure,
-  respondWithSuccess
 } from '../../shared/response.js'
+import {
+  OutputEncodingQuerySchema,
+  parseOutputEncoding,
+  respondWithEncoded,
+  respondWithInvalidEncoding
+} from '../../shared/output-encoding.js'
 import type { AppEnv } from '../../http/types.js'
 import {
   formatDaily60sMarkdown,
@@ -31,10 +36,8 @@ const Daily60sDataSchema = z.object({
   api_updated_at: z.number().int().nonnegative()
 })
 const Daily60sSuccessSchema = createSuccessEnvelopeSchema(Daily60sDataSchema)
-const Daily60sQuerySchema = z.object({
-  date: z.string().optional(),
-  encode: z.string().optional(),
-  encoding: z.string().optional()
+const Daily60sQuerySchema = OutputEncodingQuerySchema.extend({
+  date: z.string().optional()
 })
 const daily60sRoute = createRoute({
   method: 'get',
@@ -63,16 +66,6 @@ const daily60sRoute = createRoute({
   }
 })
 
-type Daily60sEncoding = 'json' | 'text' | 'markdown'
-
-function parseEncoding(value: string): Daily60sEncoding | null {
-  const normalized = value.trim().toLowerCase()
-  if (!normalized || normalized === 'json') return 'json'
-  if (normalized === 'text') return 'text'
-  if (normalized === 'markdown' || normalized === 'md') return 'markdown'
-  return null
-}
-
 export function registerDaily60sRoutes(app: OpenAPIHono<AppEnv>) {
   app.openapi(daily60sRoute, async (c) => {
     const query = c.req.valid('query')
@@ -86,14 +79,9 @@ export function registerDaily60sRoutes(app: OpenAPIHono<AppEnv>) {
         'date 必须是有效的 YYYY-MM-DD 日期'
       )
     }
-    const encoding = parseEncoding(query.encode ?? query.encoding ?? '')
+    const encoding = parseOutputEncoding(query)
     if (!encoding) {
-      return respondWithFailure(
-        c,
-        400,
-        'INVALID_ENCODING',
-        'encode 必须是 json、text、markdown 或 md'
-      )
+      return respondWithInvalidEncoding(c)
     }
 
     const signal = c.get('deadlineSignal')
@@ -102,18 +90,17 @@ export function registerDaily60sRoutes(app: OpenAPIHono<AppEnv>) {
         fallback: rawDate.length === 0,
         signal
       })
-      c.header('cache-control', 'public, max-age=900')
-      if (encoding === 'text') return c.text(formatDaily60sText(data)) as never
-      if (encoding === 'markdown') {
-        c.header('content-type', 'text/markdown; charset=UTF-8')
-        return c.body(formatDaily60sMarkdown(data)) as never
-      }
-      return respondWithSuccess(
+      return respondWithEncoded(
         c,
+        encoding,
         data,
-        '获取每日 60 秒成功',
-        'public, max-age=900'
-      )
+        {
+          message: '获取每日 60 秒成功',
+          text: formatDaily60sText,
+          markdown: formatDaily60sMarkdown,
+          cacheControl: 'public, max-age=900'
+        }
+      ) as never
     } catch (error) {
       if (signal.aborted) throw signal.reason
       const message = error instanceof Error

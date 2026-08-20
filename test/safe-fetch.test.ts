@@ -84,6 +84,33 @@ describe('safe fetch', () => {
     expect(fetchMock).toHaveBeenCalledOnce()
   })
 
+  it('removes credentials when a redirect crosses origins', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(null, {
+        status: 302,
+        headers: { location: 'https://cdn.example.net/resource' }
+      }))
+      .mockResolvedValueOnce(new Response('ok'))
+
+    await safeFetch('https://example.com/resource', {
+      allowedHosts: ['example.com', 'example.net'],
+      headers: {
+        authorization: 'Bearer secret',
+        cookie: 'session=secret',
+        'proxy-authorization': 'Basic secret',
+        'x-request-id': 'request-id'
+      }
+    })
+
+    const redirected = fetchMock.mock.calls[1]
+    expect(redirected?.[0].toString()).toBe('https://cdn.example.net/resource')
+    const headers = new Headers(redirected?.[1]?.headers)
+    expect(headers.has('authorization')).toBe(false)
+    expect(headers.has('cookie')).toBe(false)
+    expect(headers.has('proxy-authorization')).toBe(false)
+    expect(headers.get('x-request-id')).toBe('request-id')
+  })
+
   it('rejects response bodies over the configured byte limit', async () => {
     await expect(readLimitedText(new Response('12345'), 4))
       .rejects.toThrow('response is too large')

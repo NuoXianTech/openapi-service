@@ -7,6 +7,7 @@ const BASE_URL = 'http://www.qiyoujiage.com'
 const CACHE_TTL_MS = 60 * 60 * 1000
 const MAX_RESPONSE_BYTES = 1024 * 1024
 const MAX_CACHE_ENTRIES = 128
+const SOURCE_TIMEOUT_MS = 15_000
 const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
 const formatter = new Intl.DateTimeFormat('sv-SE', {
   timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -119,7 +120,9 @@ export function parseFuelTrend(html: string): FuelTrend | null {
 
 async function fetchEntry(region: FuelRegion): Promise<CacheEntry> {
   const response = await fetch(`${BASE_URL}${region.url}`, {
-    headers: { 'User-Agent': USER_AGENT }
+    headers: { 'User-Agent': USER_AGENT },
+    redirect: 'error',
+    signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS)
   })
   if (!response.ok) {
     await response.body?.cancel().catch(() => undefined)

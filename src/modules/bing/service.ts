@@ -15,16 +15,7 @@ const SOURCE_TIMEOUT_MS = 15_000
 const MAX_PRIMARY_BYTES = 2 * 1024 * 1024
 const MAX_ARCHIVE_BYTES = 256 * 1024
 
-const BING_ENCODES = [
-  'image',
-  'image-4k',
-  'json',
-  'text',
-  'markdown',
-  'md'
-] as const
 const BING_IMAGE_TYPES = ['auto', 'pc', 'mobile'] as const
-export type BingEncode = typeof BING_ENCODES[number]
 export type BingImageType = typeof BING_IMAGE_TYPES[number]
 
 export interface BingImageRecord {
@@ -243,10 +234,6 @@ async function fetchFromArchive(): Promise<BingImageRecord> {
 async function produceBingImage(): Promise<BingImageRecord> {
   return await fetchFromPrimary().catch(() => null)
     || await fetchFromArchive()
-}
-
-export function isBingEncode(value: string): value is BingEncode {
-  return BING_ENCODES.includes(value as BingEncode)
 }
 
 export function isBingImageType(value: string): value is BingImageType {

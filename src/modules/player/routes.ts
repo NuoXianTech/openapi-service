@@ -81,7 +81,6 @@ const assetRoute = createRoute({
 
 function htmlHeaders() {
   return {
-    'access-control-allow-origin': '*',
     'cache-control': 'no-store',
     'content-security-policy': "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; media-src http: https: blob:; img-src http: https: data:; connect-src http: https:;",
     'referrer-policy': 'no-referrer',

@@ -110,6 +110,18 @@ describe('music contract', () => {
     )).toBe('https://dl.stream.qqmusic.qq.com/test.mp3')
     expect(normalizeMusicRedirectUrl('netease', 'javascript:alert(1)'))
       .toBeNull()
+    expect(normalizeMusicRedirectUrl(
+      'netease',
+      'https://music.126.net.evil.test/song.mp3'
+    )).toBeNull()
+    expect(normalizeMusicRedirectUrl(
+      'kugou',
+      'https://webfs.tx.kugou.com/song.mp3'
+    )).toBe('https://webfs.tx.kugou.com/song.mp3')
+    expect(normalizeMusicRedirectUrl(
+      'kuwo',
+      'https://other.web.ra01.sycdn.kuwo.cn/song.mp3'
+    )).toBe('https://other.web.ra01.sycdn.kuwo.cn/song.mp3')
   })
 
   it('parses JSONP safely and merges Cookie values', () => {

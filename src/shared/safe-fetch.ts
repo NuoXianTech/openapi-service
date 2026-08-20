@@ -83,15 +83,25 @@ function createPinnedDispatcher(pinned: Map<string, ResolvedAddress[]>) {
   return new Agent({ connect: { lookup: pinnedLookup } })
 }
 
-function redirectedRequest(status: number, options: RequestInit): RequestInit {
+function redirectedRequest(
+  status: number,
+  options: RequestInit,
+  crossesOrigin: boolean
+): RequestInit {
   const method = (options.method || 'GET').toUpperCase()
+  const headers = new Headers(options.headers)
+  if (crossesOrigin) {
+    headers.delete('authorization')
+    headers.delete('cookie')
+    headers.delete('cookie2')
+    headers.delete('proxy-authorization')
+  }
   if (status === 303 || ((status === 301 || status === 302) && method === 'POST')) {
-    const headers = new Headers(options.headers)
     headers.delete('content-length')
     headers.delete('content-type')
     return { ...options, method: 'GET', body: null, headers }
   }
-  return options
+  return { ...options, headers }
 }
 
 export async function safeFetch(
@@ -122,7 +132,11 @@ export async function safeFetch(
       }
       const next = await assertSafeUrl(new URL(location, url), allowedHosts, pinned)
       await response.body?.cancel()
-      init = redirectedRequest(response.status, init)
+      init = redirectedRequest(
+        response.status,
+        init,
+        next.origin !== url.origin
+      )
       url = next
     }
     throw new Error('upstream redirect limit exceeded')
