@@ -88,6 +88,8 @@ Token 由 Platform 使用自己的数据密钥加密保存。Service 端的 `API
 
 同一 Internal Upstream 的多个 Target 是同一个服务契约的副本。例如同一主机上的 `http://127.0.0.1:3001` 与 `http://127.0.0.1:3002` 必须使用相同的 `SERVICE_ID`、`SERVICE_NAME` 和 `API_SERVICE_TOKEN`。每个进程使用独立的可写 `SERVICE_DATA_DIR/runtime`；副本可以使用不同的 `SERVICE_CONFIG_KEY`，但每个密钥都必须随对应运行快照备份。较大的外挂数据可以把同一宿主机目录分别只读挂载到各实例的 `SERVICE_DATA_DIR/assets`。
 
+Platform 发现时还会校验 `serviceProtocol`。当前 Service 声明 `openapi-service/v1`；该值不是软件版本，也不限制 OpenAPI 中只能出现 `/v1`。Platform 与 Service 版本号不同只要协议受支持且集成测试通过即可组合部署。
+
 ## 4. 健康检查
 
 ```text
@@ -114,7 +116,7 @@ docker compose ps
 3. 启用该 Target，在“管理 Service”中重新发现并同步全部 Target。
 4. 等待该 Target 显示为已同步后，再用相同步骤更新下一个 Target。
 
-启用内部 Target 不会立刻把它加入活动路由；发现和配置同步用于验证它与当前契约一致。Service 软件发布版本不参与 OpenAPI 指纹，未改变 OpenAPI 与配置 Schema 的版本可以直接滚动更新。若新版本改变任一指纹，应创建新的 Internal Upstream 做蓝绿迁移，不能让不同契约的节点同时属于同一 Upstream。
+启用内部 Target 不会立刻把它加入活动路由；发现和配置同步用于验证它与当前契约一致。Service 软件发布版本不参与协议兼容判断或 OpenAPI 指纹，未改变 OpenAPI 与配置 Schema 的版本可以直接滚动更新。若新版本改变任一指纹，应创建新的 Internal Upstream 做蓝绿迁移，不能让不同契约的节点同时属于同一 Upstream。
 
 回滚只需恢复上一版本镜像或 digest 后重新启动 Service。Service 回滚不执行 Platform 数据库迁移，也不修改 Platform Routing Revision。若新版本改变了 OpenAPI 或配置 Schema，回滚后应在 Platform 重新执行发现和配置同步。
 

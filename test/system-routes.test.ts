@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../src/app.js'
 import type { ServiceConfig } from '../src/config.js'
+import { SERVICE_CONTROL_PROTOCOL_V1 } from '../src/contracts/service.js'
 import type { Logger } from '../src/shared/logger.js'
 
 const currentToken = 'current-token-that-is-at-least-32-characters'
@@ -134,6 +135,7 @@ describe('system routes', () => {
     const description = (await descriptionResponse.json()) as {
       openapiSha256: string
       serviceId: string
+      serviceProtocol: string
       configuration: { schemaSha256: string }
     }
 
@@ -145,6 +147,8 @@ describe('system routes', () => {
       description.openapiSha256
     )
     expect(description.serviceId).toBe(config.serviceId)
+    expect(description.serviceProtocol).toBe(SERVICE_CONTROL_PROTOCOL_V1)
+    expect(description).not.toHaveProperty('platformProtocol')
     expect(description.configuration.schemaSha256).toMatch(/^[0-9a-f]{64}$/)
   })
 

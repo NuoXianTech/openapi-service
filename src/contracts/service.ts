@@ -1,6 +1,8 @@
 import { z } from '@hono/zod-openapi'
 import { ApiErrorResponseSchema } from '../shared/openapi.js'
 
+export const SERVICE_CONTROL_PROTOCOL_V1 = 'openapi-service/v1' as const
+
 export const HealthResponseSchema = z
   .object({
     status: z.literal('ok')
@@ -25,8 +27,8 @@ export const ServiceDescriptionSchema = z
     schemaVersion: z.literal(1),
     serviceId: z.string().min(1).max(120),
     name: z.string().min(1).max(160),
-    version: z.string(),
-    commit: z.string(),
+    version: z.string().min(1).max(160),
+    commit: z.string().min(1).max(160),
     openapi: z.literal('/openapi.json'),
     openapiSha256: z.string().regex(/^[0-9a-f]{64}$/),
     health: z.literal('/healthz'),
@@ -37,7 +39,7 @@ export const ServiceDescriptionSchema = z
       update: z.literal('/.well-known/configuration.json'),
       schemaSha256: z.string().regex(/^[0-9a-f]{64}$/)
     }),
-    platformProtocol: z.literal('openapi-platform-service/v1')
+    serviceProtocol: z.literal(SERVICE_CONTROL_PROTOCOL_V1)
   })
   .openapi('ServiceDescription')
 

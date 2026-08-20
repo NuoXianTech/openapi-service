@@ -117,4 +117,19 @@ describe('loadConfig', () => {
     expect(overridden.version).toBe('custom-version')
     expect(overridden.commit).toBe('custom-commit')
   })
+
+  it('rejects release metadata outside the Service protocol bounds', () => {
+    expect(() => loadConfig({
+      API_SERVICE_TOKEN: currentToken,
+      SERVICE_CONFIG_KEY: currentConfigurationKey,
+      SERVICE_VERSION: 'v'.repeat(161)
+    })).toThrow()
+
+    expect(() => loadConfig({
+      API_SERVICE_TOKEN: currentToken,
+      SERVICE_CONFIG_KEY: currentConfigurationKey
+    }, {
+      commit: 'c'.repeat(161)
+    })).toThrow()
+  })
 })

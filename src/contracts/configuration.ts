@@ -16,7 +16,7 @@ const RedactedConfigurationValueSchema = z.union([
 export const ConfigurationStateSchema = z
   .object({
     schemaVersion: z.literal(1),
-    serviceId: z.string(),
+    serviceId: z.string().min(1).max(120),
     schemaSha256: z.string().regex(/^[0-9a-f]{64}$/),
     revision: z.number().int().nonnegative(),
     configurationSha256: z.string().regex(/^[0-9a-f]{64}$/),
@@ -36,7 +36,7 @@ export const ConfigurationUpdateRequestSchema = z
 export const ConfigurationUpdateResponseSchema = z
   .object({
     schemaVersion: z.literal(1),
-    serviceId: z.string(),
+    serviceId: z.string().min(1).max(120),
     schemaSha256: z.string().regex(/^[0-9a-f]{64}$/),
     revision: z.number().int().positive(),
     configurationSha256: z.string().regex(/^[0-9a-f]{64}$/),

@@ -163,4 +163,4 @@ docker compose pull
 docker compose up -d --no-deps openapi-service
 ```
 
-修改接口实现、OpenAPI 或配置 Schema 时只发布 Service，不停止 Platform。部署完成后重新发现契约；如果删除 Endpoint，必须先在 Platform 停用对应 Route。
+修改接口实现、OpenAPI 或配置 Schema 时只发布 Service，不停止 Platform。部署完成后重新发现契约；如果删除 Endpoint，必须先在 Platform 停用对应 Route。Service 与 Platform 软件版本不要求一致，是否可组合部署由 `serviceProtocol` 兼容校验和集成测试决定。

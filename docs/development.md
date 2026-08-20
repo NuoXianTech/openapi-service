@@ -32,6 +32,8 @@ pnpm build
 
 Platform 不会因为 Service 的 OpenAPI 新增 Endpoint 而自动公开它。
 
+破坏请求、响应、错误码或资源语义时，不要原地修改已有 `/v1` 契约；新增 `/v2` Endpoint，并在迁移期让 OpenAPI 同时保留新旧路径。Platform 会按实际路径创建独立 Version，管理员可以分别发布和下线。这里的业务路径版本与 `serviceProtocol: "openapi-service/v1"` 无关；只有控制端点本身不兼容时才升级控制协议。
+
 同一逻辑 API 的 Operation 应使用相同的第一个业务 Tag。Platform 会忽略
 `System` Tag，并按第一个业务 Tag 创建 Product；例如 `/v1/player` 与
 `/v1/player/art` 都使用 `Player`，因此属于同一个 Product。

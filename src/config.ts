@@ -7,6 +7,7 @@ const REQUEST_TIMEOUT_MS = 20_000
 const SHUTDOWN_TIMEOUT_MS = 10_000
 const MAX_REQUEST_BODY_BYTES = 1024 * 1024
 const CONFIGURATION_KEY_BYTES = 32
+const serviceReleaseMetadataSchema = z.string().trim().min(1).max(160)
 
 function parseConfigurationKey(value: string): Buffer {
   if (/^[0-9a-fA-F]{64}$/.test(value)) {
@@ -50,8 +51,8 @@ const environmentSchema = z.object({
     .regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/)
     .default('openapi-service'),
   SERVICE_NAME: z.string().trim().min(1).max(160).default('OpenAPI Service'),
-  SERVICE_VERSION: z.string().trim().min(1).optional(),
-  SERVICE_COMMIT: z.string().trim().min(1).optional()
+  SERVICE_VERSION: serviceReleaseMetadataSchema.optional(),
+  SERVICE_COMMIT: serviceReleaseMetadataSchema.optional()
 })
 
 export interface ServiceConfig {
@@ -79,6 +80,14 @@ export function loadConfig(
   const parsed = environmentSchema.parse(environment)
   const listenAddress = parseListenAddress(parsed.LISTEN_ADDR)
   const dataDirectory = resolve(parsed.SERVICE_DATA_DIR)
+  const version = serviceReleaseMetadataSchema.parse(
+    parsed.SERVICE_VERSION
+    ?? metadata.version
+    ?? (environment.npm_package_version?.trim() || 'dev')
+  )
+  const commit = serviceReleaseMetadataSchema.parse(
+    parsed.SERVICE_COMMIT ?? metadata.commit ?? 'unknown'
+  )
 
   return {
     ...listenAddress,
@@ -97,10 +106,8 @@ export function loadConfig(
     ),
     serviceId: parsed.SERVICE_ID,
     serviceName: parsed.SERVICE_NAME,
-    version: parsed.SERVICE_VERSION
-      ?? metadata.version
-      ?? (environment.npm_package_version?.trim() || 'dev'),
-    commit: parsed.SERVICE_COMMIT ?? metadata.commit ?? 'unknown'
+    version,
+    commit
   }
 }
 

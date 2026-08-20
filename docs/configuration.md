@@ -1,8 +1,10 @@
 # Service 业务配置协议
 
-`openapi-service` 通过 `openapi-platform-service/v1` 协议向 Platform 声明可管理的业务配置。Platform 不写死音乐、IP、Crypto 等模块名称，只读取 Schema、生成通用表单、加密保存期望值，并向同一 Upstream 的所有启用 Target 下发。
+`openapi-service` 通过 `openapi-service/v1` 控制协议向 Platform 声明可管理的业务配置。Platform 不写死音乐、IP、Crypto 等模块名称，只读取 Schema、生成通用表单、加密保存期望值，并向同一 Upstream 的所有启用 Target 下发。
 
 这套协议只用于保存后应立即生效的业务配置，不允许 Platform 指定 TypeScript 类名、服务器路径或任意代码。
+
+控制协议版本与业务 Endpoint 路径版本独立。Service 可以在 `openapi-service/v1` 下同时暴露 `/v1/*` 与 `/v2/*`；只有发现、认证、配置 Schema 或配置同步语义本身发生破坏性变化时，才发布新的控制协议版本。
 
 ## 1. 三类配置
 
@@ -53,7 +55,7 @@ Authorization: Service <token>
 | `GET` | `/.well-known/configuration.json` | 返回当前 Revision、指纹和脱敏状态 |
 | `PUT` | `/.well-known/configuration.json` | 幂等应用完整配置快照 |
 
-这些控制端点返回可计算稳定 SHA-256 的协议文档，因此不套公共业务接口的 `code/message/data/timestamp` 响应壳。`/v1/*` 业务接口仍使用统一响应壳。
+这些控制端点返回可计算稳定 SHA-256 的协议文档，因此不套公共业务接口的 `code/message/data/timestamp` 响应壳。`/v{N}/*` 业务接口仍使用统一响应壳。
 
 ## 3. Schema
 

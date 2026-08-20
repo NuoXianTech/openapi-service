@@ -9,6 +9,7 @@ import {
   ContractFingerprintHeadersSchema,
   OpenAPIDocumentSchema,
   OpenAPIResponseHeadersSchema,
+  SERVICE_CONTROL_PROTOCOL_V1,
   ServiceDescriptionSchema
 } from '../../../contracts/service.js'
 import type { AppEnv } from '../../types.js'
@@ -98,7 +99,7 @@ export function registerSystemDiscoveryRoutes(
           update: '/.well-known/configuration.json',
           schemaSha256: configuration.getSchemaSha256()
         },
-        platformProtocol: 'openapi-platform-service/v1'
+        serviceProtocol: SERVICE_CONTROL_PROTOCOL_V1
       },
       200
     )

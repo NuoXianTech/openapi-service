@@ -2,6 +2,8 @@
 
 `openapi-service` 是 OpenAPI Platform 的独立 Node.js 业务 API 上游，使用 Hono、TypeScript 和 Node.js 24。它拥有独立进程、镜像、版本与回滚边界，不连接 Platform 的 PostgreSQL 或 Redis。
 
+Service 与 Platform 独立发布，软件版本号不要求相同。`/.well-known/service.json` 通过 `serviceProtocol: "openapi-service/v1"` 声明当前控制协议，Platform 在发现阶段据此确认通信兼容性；`version` 与 `commit` 仅用于观测。业务接口的 `/v1`、`/v2` 由 OpenAPI 声明，可以并存并由 Platform 分别发布，不与控制协议或任一项目的软件版本绑定。
+
 ## 职责边界
 
 Service 负责具体接口实现、业务数据、第三方来源访问、OpenAPI 契约、Service Token、超时、日志和健康检查。
@@ -85,6 +87,8 @@ pnpm build
 - 修改音乐平台开关/Cookie、IP 数据库密钥、Crypto 算法等已声明业务配置：在 Platform 保存并热更新 Service，不重启进程。
 - 修改 Service Token、统一数据根目录、网络或进程配置：滚动重启 Service，不重建 Platform。
 - 修改接口实现、OpenAPI、配置 Schema 或依赖：只构建和替换 Service，不停止 Platform。
+- 新增破坏性业务接口：新增 `/v2/...` 并在迁移期保留 `/v1/...`；只要控制面仍兼容，就继续使用 `openapi-service/v1`。
+- 修改发现、认证或配置同步协议且无法向后兼容：发布新的控制协议（例如 `openapi-service/v2`），并由 Platform 显式增加适配后再部署该组合。
 
 文档：
 

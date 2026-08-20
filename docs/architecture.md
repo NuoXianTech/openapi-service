@@ -85,6 +85,8 @@ Zod Schema 是请求、响应和 OpenAPI 的单一来源。未知异常只公开
 
 OpenAPI 文档确定性排序并计算 SHA-256。指纹变化只表示 Service 契约变化，不会自动修改 Platform 的活动 Route。
 
+Service Description 使用 `serviceProtocol: "openapi-service/v1"` 声明控制协议。Platform 只根据其明确支持的协议版本建立控制连接，不比较两个项目的软件版本号。业务 `/v1`、`/v2` 路径由 OpenAPI 独立声明并可并存；新增业务 `/v2` 不要求升级控制协议。
+
 Platform 按 Operation 的第一个非 `System` Tag 组织 Product。同一业务的多个
 Operation 应共享该 Tag。只为公开 Operation 提供资产或内部依赖的 Operation
 使用 `x-openapi-platform.support=true`；它仍经过 Gateway 转发，但由 Platform
