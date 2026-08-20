@@ -3,13 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "description": "Independent Node.js business API service for OpenAPI Platform",
   "type": "module",
   "packageManager": "pnpm@11.20.0",
-  "engines": {
-    "node": ">=24 <25",
-    "pnpm": ">=11 <12"
-  },
   "scripts": {
     "dev": "tsx watch --env-file=.env src/index.ts",
     "check:unused": "knip",
@@ -40,9 +35,8 @@
     "vitest": "^4.1.10"
   },
   "knip": {
-    "project": [
-      "src/**/*.ts",
-      "test/**/*.ts"
+    "ignore": [
+      "resources/**"
     ],
     "ignoreDependencies": [
       "artplayer",
