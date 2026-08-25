@@ -42,7 +42,6 @@ const authorization = {
 const platformContextHeaders = {
   'x-openapi-route-id': '9fc56699-b603-4ebd-86ef-e67a77df4f7d',
   'x-openapi-upstream-id': '0a2d467c-12cd-4c39-9ff0-46c037ae74eb',
-  'x-openapi-environment-id': '1af74b09-b9e3-40bb-bb6f-6cf6b97bd735',
   'x-openapi-revision-id': '9ec01c1b-6d63-478c-866b-6148d927ced7',
   'x-openapi-product-id': '488651d5-d95b-46c6-81b0-0afe7d7fb5d0',
   'x-openapi-product-slug': 'public-utilities',
@@ -215,8 +214,6 @@ describe('request pipeline', () => {
         outcome: 'error',
         platform_route_id: platformContextHeaders['x-openapi-route-id'],
         platform_upstream_id: platformContextHeaders['x-openapi-upstream-id'],
-        platform_environment_id:
-          platformContextHeaders['x-openapi-environment-id'],
         platform_revision_id:
           platformContextHeaders['x-openapi-revision-id'],
         platform_product_id: platformContextHeaders['x-openapi-product-id'],

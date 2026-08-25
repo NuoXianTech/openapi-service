@@ -42,7 +42,6 @@ export function createAccessLogMiddleware(logger: Logger) {
         traceparent: c.req.header('traceparent'),
         platform_route_id: c.req.header('x-openapi-route-id'),
         platform_upstream_id: c.req.header('x-openapi-upstream-id'),
-        platform_environment_id: c.req.header('x-openapi-environment-id'),
         platform_revision_id: c.req.header('x-openapi-revision-id'),
         platform_product_id: c.req.header('x-openapi-product-id'),
         platform_product_slug: c.req.header('x-openapi-product-slug'),
