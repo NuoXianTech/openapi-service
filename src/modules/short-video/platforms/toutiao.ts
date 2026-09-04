@@ -1,7 +1,7 @@
 /** Adapted from dist/api/short_videos (MIT, Copyright 2025 jiuhunwl). */
 
 import { Buffer } from 'node:buffer'
-import { createShortVideoError } from '../types.js'
+import { createShortVideoError, type ShortVideoRequestOptions } from '../types.js'
 import {
   asArray,
   asRecord,
@@ -36,12 +36,16 @@ function decodeVideoUrl(value: unknown): string {
   }
 }
 
-export async function parseToutiao(sourceUrl: URL, signal?: AbortSignal): Promise<unknown> {
+export async function parseToutiao(
+  sourceUrl: URL,
+  options: ShortVideoRequestOptions
+): Promise<unknown> {
   let videoId = extractToutiaoVideoId(sourceUrl)
   if (!videoId) {
     const resolvedUrl = await resolvePlatformUrl(PLATFORM, sourceUrl, ALLOWED_HOSTS, {
-      'user-agent': DESKTOP_BROWSER_USER_AGENT
-    }, signal)
+      ...options,
+      headers: { 'user-agent': DESKTOP_BROWSER_USER_AGENT }
+    })
     videoId = extractToutiaoVideoId(resolvedUrl)
   }
   if (!videoId) {
@@ -50,12 +54,12 @@ export async function parseToutiao(sourceUrl: URL, signal?: AbortSignal): Promis
 
   const pageUrl = `https://www.toutiao.com/video/${videoId}`
   const response = await requestPlatformText(PLATFORM, pageUrl, ALLOWED_HOSTS, {
+    ...options,
     headers: {
       'accept': 'text/html,application/xhtml+xml,*/*',
       'referer': 'https://www.toutiao.com/',
       'user-agent': DESKTOP_BROWSER_USER_AGENT
-    },
-    signal
+    }
   })
   const renderData = extractToutiaoRenderData(response.text)
   const data = asRecord(renderData?.data)

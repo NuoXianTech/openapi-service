@@ -1,6 +1,6 @@
 /** Adapted from dist/api/short_videos (MIT, Copyright 2025 jiuhunwl). */
 
-import { createShortVideoError } from '../types.js'
+import { createShortVideoError, type ShortVideoRequestOptions } from '../types.js'
 import { asArray, asRecord, firstMediaUrl, firstText } from '../values.js'
 import {
   DESKTOP_BROWSER_USER_AGENT,
@@ -22,13 +22,17 @@ export function extractBilibiliId(url: URL): string | null {
   return /\/video\/(BV[0-9A-Za-z]+)/i.exec(url.pathname)?.[1] ?? null
 }
 
-async function resolveBilibiliVideo(sourceUrl: URL, signal?: AbortSignal): Promise<{ bvid: string, url: URL }> {
+async function resolveBilibiliVideo(
+  sourceUrl: URL,
+  options: ShortVideoRequestOptions
+): Promise<{ bvid: string, url: URL }> {
   const directId = extractBilibiliId(sourceUrl)
   if (directId) return { bvid: directId, url: sourceUrl }
 
   const resolvedUrl = await resolvePlatformUrl(PLATFORM, sourceUrl, ALLOWED_HOSTS, {
-    'user-agent': DESKTOP_BROWSER_USER_AGENT
-  }, signal)
+    ...options,
+    headers: { 'user-agent': DESKTOP_BROWSER_USER_AGENT }
+  })
   const resolvedId = extractBilibiliId(resolvedUrl)
   if (!resolvedId) {
     throw createShortVideoError('business', 422, 'PARSE_FAILED', '无法从 Bilibili 链接提取 BV 号')
@@ -36,7 +40,11 @@ async function resolveBilibiliVideo(sourceUrl: URL, signal?: AbortSignal): Promi
   return { bvid: resolvedId, url: resolvedUrl }
 }
 
-async function parsePageVideo(bvid: string, page: Record<string, unknown>, signal?: AbortSignal): Promise<string> {
+async function parsePageVideo(
+  bvid: string,
+  page: Record<string, unknown>,
+  options: ShortVideoRequestOptions
+): Promise<string> {
   const cid = firstText(page.cid)
   if (!cid) return ''
 
@@ -57,15 +65,18 @@ async function parsePageVideo(bvid: string, page: Record<string, unknown>, signa
     PLATFORM,
     url,
     ALLOWED_HOSTS,
-    { headers: REQUEST_HEADERS, signal }
+    { ...options, headers: REQUEST_HEADERS }
   ).catch(() => null)
   const data = asRecord(payload?.data)
   const durl = asRecord(asArray(data.durl)[0])
   return firstMediaUrl(durl.url)
 }
 
-export async function parseBilibili(sourceUrl: URL, signal?: AbortSignal): Promise<unknown> {
-  const resolved = await resolveBilibiliVideo(sourceUrl, signal)
+export async function parseBilibili(
+  sourceUrl: URL,
+  options: ShortVideoRequestOptions
+): Promise<unknown> {
+  const resolved = await resolveBilibiliVideo(sourceUrl, options)
   const { bvid } = resolved
   const viewUrl = new URL('https://api.bilibili.com/x/web-interface/view')
   viewUrl.searchParams.set('bvid', bvid)
@@ -73,7 +84,7 @@ export async function parseBilibili(sourceUrl: URL, signal?: AbortSignal): Promi
     PLATFORM,
     viewUrl,
     ALLOWED_HOSTS,
-    { headers: REQUEST_HEADERS, signal }
+    { ...options, headers: REQUEST_HEADERS }
   )
 
   if (Number(payload.code) !== 0) {
@@ -88,7 +99,7 @@ export async function parseBilibili(sourceUrl: URL, signal?: AbortSignal): Promi
   ))
   const requestedPage = Math.max(Math.trunc(Number(resolved.url.searchParams.get('p')) || 1) - 1, 0)
   const page = pages[requestedPage] ?? pages[0]
-  const videoUrl = page ? await parsePageVideo(bvid, page, signal) : ''
+  const videoUrl = page ? await parsePageVideo(bvid, page, options) : ''
   if (!videoUrl) {
     throw createShortVideoError('business', 422, 'PARSE_FAILED', 'Bilibili 视频未返回可用播放地址')
   }

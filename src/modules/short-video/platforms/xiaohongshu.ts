@@ -1,6 +1,6 @@
 /** Adapted from dist/api/short_videos (MIT, Copyright 2025 jiuhunwl). */
 
-import { createShortVideoError } from '../types.js'
+import { createShortVideoError, type ShortVideoRequestOptions } from '../types.js'
 import {
   asArray,
   asRecord,
@@ -148,7 +148,10 @@ function formatXiaohongshuNote(note: Record<string, unknown>): unknown {
   }
 }
 
-export async function parseXiaohongshu(sourceUrl: URL, signal?: AbortSignal): Promise<unknown> {
+export async function parseXiaohongshu(
+  sourceUrl: URL,
+  options: ShortVideoRequestOptions
+): Promise<unknown> {
   const normalizedSource = new URL(sourceUrl)
   if (normalizedSource.hostname === 'xhs.com' || normalizedSource.hostname.endsWith('.xhs.com')) {
     normalizedSource.hostname = 'xhslink.com'
@@ -158,8 +161,9 @@ export async function parseXiaohongshu(sourceUrl: URL, signal?: AbortSignal): Pr
   let noteId = extractXiaohongshuId(resolvedUrl)
   if (!noteId) {
     resolvedUrl = await resolvePlatformUrl(PLATFORM, normalizedSource, ALLOWED_HOSTS, {
-      'user-agent': MOBILE_BROWSER_USER_AGENT
-    }, signal)
+      ...options,
+      headers: { 'user-agent': MOBILE_BROWSER_USER_AGENT }
+    })
     noteId = extractXiaohongshuId(resolvedUrl)
   }
   if (!noteId) {
@@ -185,13 +189,13 @@ export async function parseXiaohongshu(sourceUrl: URL, signal?: AbortSignal): Pr
   for (const candidate of candidates) {
     for (const userAgent of [DESKTOP_BROWSER_USER_AGENT, MOBILE_BROWSER_USER_AGENT]) {
       const response = await requestPlatformText(PLATFORM, candidate, ALLOWED_HOSTS, {
+        ...options,
         headers: {
           'accept': 'text/html,application/xhtml+xml,*/*',
           'accept-language': 'zh-CN,zh;q=0.9',
           'referer': 'https://www.xiaohongshu.com/',
           'user-agent': userAgent
-        },
-        signal
+        }
       }).catch(() => null)
       if (!response) continue
 

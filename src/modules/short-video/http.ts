@@ -18,6 +18,18 @@ export interface PlatformTextResponse {
 
 type PlatformRequestInit = Omit<RequestInit, 'signal'> & {
   signal?: AbortSignal | undefined
+  /**
+   * Administrator-provided cookie for the platform. `safeFetch` drops it on
+   * cross-origin redirects, so it never leaks outside the platform hosts.
+   */
+  cookie?: string | undefined
+}
+
+function withCookie(headers: HeadersInit | undefined, cookie: string | undefined): Headers {
+  const merged = new Headers(headers)
+  const value = cookie?.trim()
+  if (value) merged.set('cookie', value)
+  return merged
 }
 
 function httpsUrl(input: string | URL): URL {
@@ -56,9 +68,11 @@ async function platformFetch(
   allowedHosts: readonly string[],
   options: PlatformRequestInit
 ): Promise<Response> {
+  const { cookie, ...requestOptions } = options
   try {
     return await safeFetch(httpsUrl(input), {
-      ...options,
+      ...requestOptions,
+      headers: withCookie(requestOptions.headers, cookie),
       allowedHosts,
       signal: options.signal ?? AbortSignal.timeout(DEFAULT_TIMEOUT_MS)
     })
@@ -117,13 +131,11 @@ export async function resolvePlatformUrl(
   platform: ShortVideoPlatform,
   input: URL,
   allowedHosts: readonly string[],
-  headers: HeadersInit = {},
-  signal?: AbortSignal
+  options: PlatformRequestInit = {}
 ): Promise<URL> {
   const response = await platformFetch(platform, input, allowedHosts, {
-    headers,
-    method: 'GET',
-    signal
+    ...options,
+    method: 'GET'
   })
   throwForStatus(platform, response)
   const resolvedUrl = new URL(response.url)

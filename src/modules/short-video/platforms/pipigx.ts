@@ -1,6 +1,6 @@
 /** Adapted from dist/api/short_videos (MIT, Copyright 2025 jiuhunwl). */
 
-import { createShortVideoError } from '../types.js'
+import { createShortVideoError, type ShortVideoRequestOptions } from '../types.js'
 import { asArray, asRecord, firstMediaUrl, firstText } from '../values.js'
 import { DESKTOP_BROWSER_USER_AGENT, requestPlatformJson, resolvePlatformUrl } from '../http.js'
 
@@ -13,12 +13,16 @@ function extractPipigxParams(url: URL): { pid: string, mid: string } | null {
   return pid && mid ? { pid, mid } : null
 }
 
-export async function parsePipigx(sourceUrl: URL, signal?: AbortSignal): Promise<unknown> {
+export async function parsePipigx(
+  sourceUrl: URL,
+  options: ShortVideoRequestOptions
+): Promise<unknown> {
   let params = extractPipigxParams(sourceUrl)
   if (!params) {
     const resolvedUrl = await resolvePlatformUrl(PLATFORM, sourceUrl, ALLOWED_HOSTS, {
-      'user-agent': DESKTOP_BROWSER_USER_AGENT
-    }, signal)
+      ...options,
+      headers: { 'user-agent': DESKTOP_BROWSER_USER_AGENT }
+    })
     params = extractPipigxParams(resolvedUrl)
   }
   if (!params) {
@@ -30,6 +34,7 @@ export async function parsePipigx(sourceUrl: URL, signal?: AbortSignal): Promise
     'https://h5.pipigx.com/ppapi/share/fetch_content',
     ALLOWED_HOSTS,
     {
+      ...options,
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -39,8 +44,7 @@ export async function parsePipigx(sourceUrl: URL, signal?: AbortSignal): Promise
         pid: Number(params.pid),
         mid: Number(params.mid),
         type: 'post'
-      }),
-      signal
+      })
     }
   )
 

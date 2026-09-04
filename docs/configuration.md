@@ -76,6 +76,8 @@ ip.databaseKey
 music.enabledPlatforms
 music.neteaseCookie
 crypto.allowedAlgorithms
+shortVideo.enabledPlatforms
+shortVideo.douyinCookie
 ```
 
 示例定义：

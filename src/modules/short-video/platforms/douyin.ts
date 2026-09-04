@@ -1,6 +1,6 @@
 /** Adapted from dist/api/short_videos (MIT, Copyright 2025 jiuhunwl). */
 
-import { createShortVideoError } from '../types.js'
+import { createShortVideoError, type ShortVideoRequestOptions } from '../types.js'
 import {
   asArray,
   asRecord,
@@ -207,13 +207,17 @@ export function formatDouyinDetail(detail: Record<string, unknown>, videoId: str
   }
 }
 
-export async function parseDouyin(sourceUrl: URL, signal?: AbortSignal): Promise<unknown> {
+export async function parseDouyin(
+  sourceUrl: URL,
+  options: ShortVideoRequestOptions
+): Promise<unknown> {
   let resolvedUrl = sourceUrl
   let videoId = extractDouyinId(resolvedUrl)
   if (!videoId) {
     resolvedUrl = await resolvePlatformUrl(PLATFORM, sourceUrl, ALLOWED_HOSTS, {
-      'user-agent': MOBILE_BROWSER_USER_AGENT
-    }, signal)
+      ...options,
+      headers: { 'user-agent': MOBILE_BROWSER_USER_AGENT }
+    })
     videoId = extractDouyinId(resolvedUrl)
   }
   if (!videoId) {
@@ -228,13 +232,13 @@ export async function parseDouyin(sourceUrl: URL, signal?: AbortSignal): Promise
   ])]
   for (const candidate of candidates) {
     const response = await requestPlatformText(PLATFORM, candidate, ALLOWED_HOSTS, {
+      ...options,
       headers: {
         'accept': 'text/html,application/xhtml+xml,*/*',
         'accept-language': 'zh-CN,zh;q=0.9',
         'referer': resolvedUrl.toString(),
         'user-agent': candidate.includes('iesdouyin.com') ? MOBILE_BROWSER_USER_AGENT : DESKTOP_BROWSER_USER_AGENT
-      },
-      signal
+      }
     }).catch(() => null)
     if (!response) continue
 

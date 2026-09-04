@@ -1,6 +1,6 @@
 /** Adapted from dist/api/short_videos (MIT, Copyright 2025 jiuhunwl). */
 
-import { createShortVideoError } from '../types.js'
+import { createShortVideoError, type ShortVideoRequestOptions } from '../types.js'
 import { asRecord, firstMediaUrl, firstText } from '../values.js'
 import {
   DESKTOP_BROWSER_USER_AGENT,
@@ -30,12 +30,16 @@ function qualityPriority(label: string): number {
   return 0
 }
 
-export async function parseWeibo(sourceUrl: URL, signal?: AbortSignal): Promise<unknown> {
+export async function parseWeibo(
+  sourceUrl: URL,
+  options: ShortVideoRequestOptions
+): Promise<unknown> {
   let videoId = extractWeiboVideoId(sourceUrl)
   if (!videoId) {
     const resolvedUrl = await resolvePlatformUrl(PLATFORM, sourceUrl, ALLOWED_HOSTS, {
-      'user-agent': DESKTOP_BROWSER_USER_AGENT
-    }, signal)
+      ...options,
+      headers: { 'user-agent': DESKTOP_BROWSER_USER_AGENT }
+    })
     videoId = extractWeiboVideoId(resolvedUrl)
   }
   if (!videoId) {
@@ -55,6 +59,7 @@ export async function parseWeibo(sourceUrl: URL, signal?: AbortSignal): Promise<
     apiUrl,
     ALLOWED_HOSTS,
     {
+      ...options,
       method: 'POST',
       headers: {
         'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -62,8 +67,7 @@ export async function parseWeibo(sourceUrl: URL, signal?: AbortSignal): Promise<
         'referer': `https://weibo.com${page}`,
         'user-agent': DESKTOP_BROWSER_USER_AGENT
       },
-      body,
-      signal
+      body
     }
   )
 

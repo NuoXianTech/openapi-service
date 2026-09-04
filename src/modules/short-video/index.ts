@@ -8,7 +8,15 @@ import { parseToutiao } from './platforms/toutiao.js'
 import { parseWeibo } from './platforms/weibo.js'
 import { parseXiaohongshu } from './platforms/xiaohongshu.js'
 import { normalizeShortVideoPayload } from './normalize.js'
-import { createShortVideoError, type ShortVideoData, type ShortVideoPlatform } from './types.js'
+import {
+  createShortVideoError,
+  type ShortVideoData,
+  type ShortVideoPlatform,
+  type ShortVideoRequestOptions
+} from './types.js'
+import { shortVideoConfigurationGroup } from './configuration.js'
+
+export { shortVideoConfigurationGroup }
 
 const MAX_INPUT_LENGTH = 4_096
 const SHARE_URL_PATTERN = /https?:\/\/[^\s<>"'`，。！？；：、（）【】《》「」『』]+/iu
@@ -26,7 +34,7 @@ const PLATFORM_HOSTS: Record<ShortVideoPlatform, readonly string[]> = {
 }
 const PLATFORM_PARSERS: Record<
   ShortVideoPlatform,
-  (sourceUrl: URL, signal?: AbortSignal) => Promise<unknown>
+  (sourceUrl: URL, options: ShortVideoRequestOptions) => Promise<unknown>
 > = {
   bilibili: parseBilibili,
   douyin: parseDouyin,
@@ -76,7 +84,11 @@ export function detectShortVideoPlatform(url: URL): ShortVideoPlatform {
   throw createShortVideoError('input', 422, 'UNSUPPORTED_PLATFORM', '暂不支持该短视频平台')
 }
 
-export async function parseShortVideo(sourceUrl: URL, platform: ShortVideoPlatform, signal?: AbortSignal): Promise<ShortVideoData> {
-  const payload = await PLATFORM_PARSERS[platform](sourceUrl, signal)
+export async function parseShortVideo(
+  sourceUrl: URL,
+  platform: ShortVideoPlatform,
+  options: ShortVideoRequestOptions = {}
+): Promise<ShortVideoData> {
+  const payload = await PLATFORM_PARSERS[platform](sourceUrl, options)
   return normalizeShortVideoPayload(payload, platform)
 }

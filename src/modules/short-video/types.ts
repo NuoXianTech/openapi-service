@@ -12,6 +12,12 @@ export const SHORT_VIDEO_PLATFORMS = [
 export type ShortVideoPlatform = typeof SHORT_VIDEO_PLATFORMS[number]
 export type ShortVideoMediaType = 'video' | 'image' | 'live' | 'unknown'
 
+/** Per-request upstream options resolved from the service configuration. */
+export interface ShortVideoRequestOptions {
+  cookie?: string | undefined
+  signal?: AbortSignal | undefined
+}
+
 export interface ShortVideoData {
   platform: ShortVideoPlatform
   type: ShortVideoMediaType

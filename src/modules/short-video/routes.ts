@@ -1,6 +1,7 @@
 import { createRoute, type OpenAPIHono, z } from '@hono/zod-openapi'
 import { ApiErrorResponseSchema, createSuccessEnvelopeSchema } from '../../shared/openapi.js'
 import { respondWithFailure, respondWithSuccess } from '../../shared/response.js'
+import type { ServiceConfigurationManager } from '../../configuration/manager.js'
 import type { AppEnv } from '../../http/types.js'
 import {
   detectShortVideoPlatform,
@@ -38,6 +39,8 @@ const route = createRoute({
     } }, description: 'Normalized short-video data' },
     400: { content: { 'application/json': { schema: ApiErrorResponseSchema } },
       description: 'Invalid share URL' },
+    403: { content: { 'application/json': { schema: ApiErrorResponseSchema } },
+      description: 'Platform disabled by the administrator' },
     422: { content: { 'application/json': { schema: ApiErrorResponseSchema } },
       description: 'Unsupported platform or content could not be parsed' },
     502: { content: { 'application/json': { schema: ApiErrorResponseSchema } },
@@ -47,17 +50,31 @@ const route = createRoute({
   }
 })
 
-export function registerShortVideoRoutes(app: OpenAPIHono<AppEnv>) {
+export function registerShortVideoRoutes(
+  app: OpenAPIHono<AppEnv>,
+  configuration: ServiceConfigurationManager
+) {
   app.openapi(route, async (c) => {
     c.header('cache-control', 'no-store')
     try {
       const source = parseShortVideoUrl(c.req.valid('query').url ?? '')
       const platform = detectShortVideoPlatform(source)
-      const data = await parseShortVideo(
-        source,
-        platform,
-        c.get('deadlineSignal')
+      const enabledPlatforms = configuration.getValue<string[]>(
+        'shortVideo.enabledPlatforms'
       )
+      if (!enabledPlatforms.includes(platform)) {
+        return respondWithFailure(
+          c,
+          403,
+          'SHORT_VIDEO_PLATFORM_DISABLED',
+          `短视频平台 ${platform} 已被管理员关闭`
+        ) as never
+      }
+
+      const data = await parseShortVideo(source, platform, {
+        cookie: configuration.getValue<string>(`shortVideo.${platform}Cookie`),
+        signal: c.get('deadlineSignal')
+      })
       return respondWithSuccess(c, data, '短视频解析成功')
     } catch (error) {
       if (c.get('deadlineSignal').aborted) {

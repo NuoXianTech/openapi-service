@@ -20,6 +20,7 @@ import { registerPlayerRoutes } from './player/routes.js'
 import { registerPasswordCheckRoutes } from './password-check/routes.js'
 import { registerPasswordGeneratorRoutes } from './password-generator/routes.js'
 import { registerQqAvatarRoutes } from './qq-avatar/routes.js'
+import { shortVideoConfigurationGroup } from './short-video/index.js'
 import { registerShortVideoRoutes } from './short-video/routes.js'
 import { registerTodayInHistoryRoutes } from './today-in-history/routes.js'
 import { registerYiyanRoutes } from './yiyan/routes.js'
@@ -29,7 +30,8 @@ export const serviceConfigurationDefinition = {
   groups: [
     ipConfigurationGroup,
     cryptoConfigurationGroup,
-    musicConfigurationGroup
+    musicConfigurationGroup,
+    shortVideoConfigurationGroup
   ]
 } as const satisfies ServiceConfigurationDefinition
 
@@ -61,7 +63,7 @@ export function registerServiceModules(
   registerPasswordCheckRoutes(app)
   registerPasswordGeneratorRoutes(app)
   registerQqAvatarRoutes(app)
-  registerShortVideoRoutes(app)
+  registerShortVideoRoutes(app, configuration)
   registerTodayInHistoryRoutes(app)
   registerIpModule(app, config, configuration)
 }

@@ -1,6 +1,6 @@
 /** Adapted from dist/api/short_videos (MIT, Copyright 2025 jiuhunwl). */
 
-import { createShortVideoError } from '../types.js'
+import { createShortVideoError, type ShortVideoRequestOptions } from '../types.js'
 import { asArray, asRecord, collectMediaUrls, firstMediaUrl, firstText } from '../values.js'
 import { DESKTOP_BROWSER_USER_AGENT, requestPlatformJson, resolvePlatformUrl } from '../http.js'
 
@@ -23,12 +23,16 @@ function findPipixiaItem(payload: Record<string, unknown>): Record<string, unkno
   return {}
 }
 
-export async function parsePipixia(sourceUrl: URL, signal?: AbortSignal): Promise<unknown> {
+export async function parsePipixia(
+  sourceUrl: URL,
+  options: ShortVideoRequestOptions
+): Promise<unknown> {
   const resolvedUrl = extractPipixiaItemId(sourceUrl)
     ? sourceUrl
     : await resolvePlatformUrl(PLATFORM, sourceUrl, ALLOWED_HOSTS, {
-        'user-agent': DESKTOP_BROWSER_USER_AGENT
-      }, signal)
+        ...options,
+        headers: { 'user-agent': DESKTOP_BROWSER_USER_AGENT }
+      })
   const itemId = extractPipixiaItemId(resolvedUrl)
   if (!itemId) {
     throw createShortVideoError('business', 422, 'PARSE_FAILED', '无法从皮皮虾链接提取内容 ID')
@@ -46,11 +50,11 @@ export async function parsePipixia(sourceUrl: URL, signal?: AbortSignal): Promis
     apiUrl,
     ALLOWED_HOSTS,
     {
+      ...options,
       headers: {
         'referer': resolvedUrl.toString(),
         'user-agent': DESKTOP_BROWSER_USER_AGENT
-      },
-      signal
+      }
     }
   )
 
