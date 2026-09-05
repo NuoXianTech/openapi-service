@@ -122,6 +122,21 @@ describe('system routes', () => {
     )
   })
 
+  it('accepts the previous Service Token only during a rotation window', async () => {
+    const previousServiceToken
+      = 'previous-service-token-that-is-at-least-32-characters'
+    const response = await createTestApp({ previousServiceToken }).request(
+      '/openapi.json',
+      { headers: { authorization: `Service ${previousServiceToken}` } }
+    )
+    const retired = await createTestApp().request('/openapi.json', {
+      headers: { authorization: `Service ${previousServiceToken}` }
+    })
+
+    expect(response.status).toBe(200)
+    expect(retired.status).toBe(401)
+  })
+
   it('exposes the same contract fingerprint in service discovery', async () => {
     const app = createTestApp()
     const headers = {

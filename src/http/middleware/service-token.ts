@@ -7,6 +7,11 @@ import { respondWithFailure } from '../../shared/response.js'
 const publicPaths = new Set(['/healthz', '/readyz'])
 
 export function createServiceTokenMiddleware(config: ServiceConfig) {
+  const acceptedTokens = [
+    config.serviceToken,
+    ...(config.previousServiceToken ? [config.previousServiceToken] : [])
+  ]
+
   return createMiddleware<AppEnv>(async (c, next) => {
     if (publicPaths.has(c.req.path)) {
       await next()
@@ -18,7 +23,12 @@ export function createServiceTokenMiddleware(config: ServiceConfig) {
       ? authorization.slice('Service '.length).trim()
       : ''
 
-    if (!constantTimeEqual(token, config.serviceToken)) {
+    let authenticated = false
+    for (const acceptedToken of acceptedTokens) {
+      authenticated = constantTimeEqual(token, acceptedToken) || authenticated
+    }
+
+    if (!authenticated) {
       c.header('www-authenticate', 'Service realm="openapi-service"')
       return respondWithFailure(
         c,

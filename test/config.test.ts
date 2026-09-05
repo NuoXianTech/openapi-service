@@ -39,6 +39,27 @@ describe('loadConfig', () => {
     })).toThrow()
   })
 
+  it('accepts one distinct previous token for an online rotation window', () => {
+    const previousToken = 'previous-token-that-is-at-least-32-characters'
+    const config = loadConfig({
+      API_SERVICE_TOKEN: currentToken,
+      API_SERVICE_PREVIOUS_TOKEN: previousToken,
+      SERVICE_CONFIG_KEY: currentConfigurationKey
+    })
+
+    expect(config.previousServiceToken).toBe(previousToken)
+    expect(loadConfig({
+      API_SERVICE_TOKEN: currentToken,
+      API_SERVICE_PREVIOUS_TOKEN: '   ',
+      SERVICE_CONFIG_KEY: currentConfigurationKey
+    }).previousServiceToken).toBeUndefined()
+    expect(() => loadConfig({
+      API_SERVICE_TOKEN: currentToken,
+      API_SERVICE_PREVIOUS_TOKEN: currentToken,
+      SERVICE_CONFIG_KEY: currentConfigurationKey
+    })).toThrow('must differ')
+  })
+
   it('rejects a missing or malformed configuration key', () => {
     expect(() => loadConfig({
       API_SERVICE_TOKEN: currentToken

@@ -4,11 +4,12 @@
 
 ## 1. 运行配置
 
-Service 只公开六个部署环境变量：
+Service 只公开七个部署环境变量：
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `API_SERVICE_TOKEN` | 无 | 必填，至少 32 个字符；只用于 Platform → Service 请求认证 |
+| `API_SERVICE_TOKEN` | 无 | 必填，32–4096 个字符；只用于 Platform → Service 请求认证 |
+| `API_SERVICE_PREVIOUS_TOKEN` | 留空 | 仅在线轮换期间临时填写旧 Token；32–4096 个字符且必须与当前 Token 不同 |
 | `SERVICE_CONFIG_KEY` | 无 | 必填，独立的 32-byte 密钥；支持 64 位 hex、base64url 或恰好 32-byte UTF-8，用于本地配置快照加密 |
 | `SERVICE_ID` | `openapi-service` | 稳定的服务契约身份；同一 Internal Upstream 的全部 Target 必须一致 |
 | `SERVICE_NAME` | `OpenAPI Service` | Platform 发现后展示的服务名称；同一 Internal Upstream 的全部 Target 必须一致 |
@@ -19,6 +20,7 @@ Service 只公开六个部署环境变量：
 
 ```dotenv
 API_SERVICE_TOKEN=replace-with-at-least-32-random-characters
+API_SERVICE_PREVIOUS_TOKEN=
 SERVICE_CONFIG_KEY=replace-with-an-independent-64-character-hex-value
 SERVICE_ID=openapi-service
 SERVICE_NAME=OpenAPI Service
@@ -28,7 +30,7 @@ SERVICE_DATA_DIR=data
 
 `LISTEN_ADDR` 接受 `:8080`、`127.0.0.1:8080`、`8080` 或 `[::1]:8080`。使用官方 Docker 镜像时保留镜像内的 `:8080` 与 `/app/data` 默认值即可；Compose 已将外挂资产和运行快照挂载到 `/app/data` 对应目录。
 
-`.env.example` 列出以上六个管理员可配置项。`SERVICE_CONFIG_KEY` 必须与 `API_SERVICE_TOKEN` 分别生成，并与运行快照一起备份；已有快照后不能直接替换。`SERVICE_ID` 只允许小写字母、数字以及分隔符 `.`, `_`, `-`，最大 120 个字符。它同时参与配置快照归属和 Platform 契约校验：同一 Internal Upstream 的全部 Target 必须使用相同值；已有快照或已经被 Platform 发现后不得随意修改。`SERVICE_NAME` 是展示名称，最大 160 个字符。
+`.env.example` 列出以上七个管理员可配置项。`SERVICE_CONFIG_KEY` 必须与 `API_SERVICE_TOKEN` 分别生成，并与运行快照一起备份；已有快照后不能直接替换。`API_SERVICE_PREVIOUS_TOKEN` 不参与配置加密，只用于短暂认证重叠，轮换完成后必须清空。`SERVICE_ID` 只允许小写字母、数字以及分隔符 `.`, `_`, `-`，最大 120 个字符。它同时参与配置快照归属和 Platform 契约校验：同一 Internal Upstream 的全部 Target 必须使用相同值；已有快照或已经被 Platform 发现后不得随意修改。`SERVICE_NAME` 是展示名称，最大 160 个字符。
 
 `SERVICE_VERSION` 与 `SERVICE_COMMIT` 是构建阶段写入 `dist/build-info.json` 的观测信息，官方镜像和 GitHub Release 预构建包都会携带。它们不属于管理员日常运行配置，因此不放入模板；仅在自定义构建确有需要时才通过同名环境变量显式覆盖。
 
@@ -122,14 +124,13 @@ docker compose ps
 
 ## 6. Token 更换
 
-`0.1.0` 不提供双 Token 在线轮换，也不公开 `API_SERVICE_PREVIOUS_TOKEN`。日常维护应保持 Token 稳定；只有泄露或环境迁移时才更换。
+配置快照不使用 Token 加密，因此只更换 Service Token 不会影响已有快照。在线轮换使用一个短暂的双 Token 窗口：
 
-配置快照不再使用 Token 加密，因此只更换 `API_SERVICE_TOKEN` 不会影响已有快照。Token 更换仍需要维护窗口，以同步更新 Service 与 Platform：
+1. 在全部 Target 设置新的 `API_SERVICE_TOKEN`，同时把旧值放入 `API_SERVICE_PREVIOUS_TOKEN`，然后逐个滚动重启；保持 `SERVICE_CONFIG_KEY` 不变。
+2. 在 Platform 的对应 Internal Upstream 保存新 Token，并执行发现。发现成功后 Platform 会把新 Token 提升为活动凭据。
+3. 验证公开 Route 和全部 Target 的配置同步状态。
+4. 从全部 Target 删除 `API_SERVICE_PREVIOUS_TOKEN`，再逐个滚动重启。
 
-1. 暂停或禁用对应 Target。
-2. 停止 Service，设置新的 `API_SERVICE_TOKEN` 后重新启动；保持 `SERVICE_CONFIG_KEY` 不变。
-3. 在 Platform 的对应 Internal Upstream 更新 Token。
-4. 重新发现 Service 并验证连接。
-5. 验证业务 Route 后重新启用流量。
+旧 Token 只应保留到 Platform 提升完成，不能作为长期第二凭据。若旧 Token 已泄露，应使用维护窗口立即替换，不应通过重叠窗口继续接受泄露凭据。
 
 `SERVICE_CONFIG_KEY` 是长期数据密钥，不应跟随 Token 轮换。直接修改它而保留快照会让 Service 以 `configuration file could not be decrypted` 拒绝启动；当前版本不提供在线重加密或 Keyring。

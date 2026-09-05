@@ -47,6 +47,7 @@ node -e "const { randomBytes } = require('crypto'); console.log('API_SERVICE_TOK
 
 ```env
 API_SERVICE_TOKEN=replace-with-an-independent-random-value
+API_SERVICE_PREVIOUS_TOKEN=
 SERVICE_CONFIG_KEY=replace-with-an-independent-64-character-hex-value
 SERVICE_ID=openapi-service
 SERVICE_NAME=OpenAPI Service

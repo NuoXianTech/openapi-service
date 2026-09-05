@@ -8,6 +8,11 @@ const SHUTDOWN_TIMEOUT_MS = 10_000
 const MAX_REQUEST_BODY_BYTES = 1024 * 1024
 const CONFIGURATION_KEY_BYTES = 32
 const serviceReleaseMetadataSchema = z.string().trim().min(1).max(160)
+const serviceTokenSchema = z.string().trim().min(32).max(4096)
+const optionalServiceTokenSchema = z.preprocess(
+  value => String(value ?? '').trim() || undefined,
+  serviceTokenSchema.optional()
+)
 
 function parseConfigurationKey(value: string): Buffer {
   if (/^[0-9a-fA-F]{64}$/.test(value)) {
@@ -40,7 +45,8 @@ const configurationKeySchema = z.string().trim().min(1).transform(
 
 const environmentSchema = z.object({
   LISTEN_ADDR: z.string().trim().min(1).default(':8080'),
-  API_SERVICE_TOKEN: z.string().trim().min(32),
+  API_SERVICE_TOKEN: serviceTokenSchema,
+  API_SERVICE_PREVIOUS_TOKEN: optionalServiceTokenSchema,
   SERVICE_CONFIG_KEY: configurationKeySchema,
   SERVICE_DATA_DIR: z.string().trim().min(1).default('data'),
   SERVICE_ID: z
@@ -53,12 +59,20 @@ const environmentSchema = z.object({
   SERVICE_NAME: z.string().trim().min(1).max(160).default('OpenAPI Service'),
   SERVICE_VERSION: serviceReleaseMetadataSchema.optional(),
   SERVICE_COMMIT: serviceReleaseMetadataSchema.optional()
-})
+}).refine(
+  value => !value.API_SERVICE_PREVIOUS_TOKEN
+    || value.API_SERVICE_PREVIOUS_TOKEN !== value.API_SERVICE_TOKEN,
+  {
+    path: ['API_SERVICE_PREVIOUS_TOKEN'],
+    message: 'API_SERVICE_PREVIOUS_TOKEN must differ from API_SERVICE_TOKEN'
+  }
+)
 
 export interface ServiceConfig {
   hostname: string
   port: number
   serviceToken: string
+  previousServiceToken?: string
   configurationKey: Buffer
   readHeaderTimeoutMs: number
   requestTimeoutMs: number
@@ -92,6 +106,9 @@ export function loadConfig(
   return {
     ...listenAddress,
     serviceToken: parsed.API_SERVICE_TOKEN,
+    ...(parsed.API_SERVICE_PREVIOUS_TOKEN
+      ? { previousServiceToken: parsed.API_SERVICE_PREVIOUS_TOKEN }
+      : {}),
     configurationKey: parsed.SERVICE_CONFIG_KEY,
     readHeaderTimeoutMs: READ_HEADER_TIMEOUT_MS,
     requestTimeoutMs: REQUEST_TIMEOUT_MS,

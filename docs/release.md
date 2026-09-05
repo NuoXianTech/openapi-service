@@ -98,7 +98,7 @@ git push origin v0.1.0
 
 Service 与 Platform 是独立部署和发布单元，版本号不建立对应关系。Service 可以因业务接口新增、修复或运行时优化单独发布；Platform 也可以在不发布 Service 的情况下升级。
 
-每次发布只需确认 Service 声明的 `serviceProtocol` 在目标 Platform 的支持集合内（当前为 `openapi-service/v1`），并通过 Platform → Service 集成测试。Platform 工作流验证 Service 当前 `main`，不会根据 Platform 版本选择 Service Tag，也不会比较两边的软件版本号。
+每次发布只需确认 Service 声明的 `serviceProtocol` 在目标 Platform 的支持集合内（当前为 `openapi-service/v1`），并通过 Platform → Service 集成测试。日常工作流验证当前 `main`；跨版本兼容性由两个仓库的 `compatibility` 工作流按周或手动运行，运行时解析最新正式 Release，不比较或绑定两边的软件版本号。
 
 业务 Endpoint 的 `/v1`、`/v2` 与控制协议分别演进。新增破坏性业务接口时可以发布 `/v2` 并保留 `/v1` 迁移；只有 `/.well-known/*`、认证或配置同步语义不兼容时，才发布新的控制协议（例如 `openapi-service/v2`）并要求 Platform 增加对应适配。
 
