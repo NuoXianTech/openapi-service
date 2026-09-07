@@ -3,6 +3,8 @@ import type { ServiceConfig } from '../config.js'
 import type { ServiceConfigurationManager } from '../configuration/manager.js'
 import type { ServiceConfigurationDefinition } from '../configuration/types.js'
 import type { AppEnv } from '../http/types.js'
+import { aiMediaConfigurationGroup } from './ai-media/configuration.js'
+import { registerAiMediaRoutes } from './ai-media/routes.js'
 import { registerBingRoutes } from './bing/routes.js'
 import { cryptoConfigurationGroup } from './crypto/configuration.js'
 import { registerCryptoRoutes } from './crypto/routes.js'
@@ -31,7 +33,8 @@ export const serviceConfigurationDefinition = {
     ipConfigurationGroup,
     cryptoConfigurationGroup,
     musicConfigurationGroup,
-    shortVideoConfigurationGroup
+    shortVideoConfigurationGroup,
+    aiMediaConfigurationGroup
   ]
 } as const satisfies ServiceConfigurationDefinition
 
@@ -47,6 +50,7 @@ export function registerServiceModules(
   config: ServiceConfig,
   configuration: ServiceConfigurationManager
 ) {
+  registerAiMediaRoutes(app, configuration)
   registerYiyanRoutes(app)
   registerDaily60sRoutes(app)
   registerBingRoutes(app)

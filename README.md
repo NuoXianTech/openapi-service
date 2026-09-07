@@ -29,6 +29,12 @@ GET /.well-known/configuration.json
 PUT /.well-known/configuration.json
 
 GET /v1/yiyan
+GET /v1/ai-media/doubao
+GET /v1/ai-media/jimeng
+GET /v1/ai-media/xiaoyunque
+GET /v1/ai-media/kling
+GET /v1/ai-media/hailuo
+GET /v1/ai-media/qianwen
 GET /v1/player
 GET /v1/player/art
 GET /v1/player/assets/{asset} (support)
@@ -99,6 +105,7 @@ pnpm build
 - [运行维护](docs/operations.md)
 - [版本发布流程](docs/release.md)
 - [一言接口](docs/apis/yiyan.md)
+- [AI 媒体解析与去水印接口](docs/apis/ai-media.md)
 - [播放器接口](docs/apis/player.md)
 - [IP 接口](docs/apis/ip.md)
 - [每日 60 秒接口](docs/apis/60s.md)
@@ -131,6 +138,7 @@ pnpm build
 - [60s](https://github.com/vikiboss/60s)
 - [Meting](https://github.com/metowolf/Meting)
 - [short_videos](https://github.com/jiuhunwl/short_videos)
+- [media-parser](https://github.com/ucmao/media-parser)
 - [60s-static-host](https://github.com/vikiboss/60s-static-host)
 - [LanzouAPI](https://github.com/hanximeng/LanzouAPI)
 - [v50](https://github.com/vikiboss/v50)
