@@ -6,7 +6,8 @@ import { serviceConfigurationDefinition } from '../src/modules/index.js'
 import { parseAiMedia } from '../src/modules/ai-media/index.js'
 import { detectAiMediaPlatform, parseAiMediaUrl } from '../src/modules/ai-media/input.js'
 import { decipherFplayUrl } from '../src/modules/ai-media/platforms/doubao.js'
-import { AI_MEDIA_PLATFORMS, type AiMediaData, type AiMediaPlatform } from '../src/modules/ai-media/types.js'
+import { AiMediaDataSchema, AiMediaResponseSchema } from '../src/modules/ai-media/schema.js'
+import { AI_MEDIA_LABELS, AI_MEDIA_PLATFORMS, type AiMediaData, type AiMediaPlatform } from '../src/modules/ai-media/types.js'
 import { safeFetch } from '../src/shared/safe-fetch.js'
 
 vi.mock('../src/shared/safe-fetch.js', async importOriginal => ({
@@ -76,6 +77,14 @@ function publicDoubao(): Response {
   } })
 }
 
+async function readMediaData(response: Response): Promise<AiMediaData> {
+  const body = await response.json()
+  expect(Object.keys(body).sort()).toEqual(['code', 'data', 'message', 'timestamp'])
+  expect(body.message).toBe('解析成功')
+  expect(Object.keys(body.data).sort()).toEqual(['author', 'avatar', 'cover', 'media', 'title', 'uid'])
+  return AiMediaResponseSchema.parse(body).data
+}
+
 beforeEach(() => {
   fetchMock.mockReset()
   fetchMock.mockRejectedValue(new Error('unexpected upstream request'))
@@ -110,7 +119,7 @@ describe('AI media input and contract', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('publishes six fixed routes with distinct products, operation IDs and platform schemas', async () => {
+  it('publishes six fixed routes with distinct products and one shared response contract', async () => {
     const response = await app().request('/openapi.json', { headers })
     const document = await response.json()
     const paths = Object.keys(document.paths).filter(path => path.startsWith('/v1/ai-media/'))
@@ -122,11 +131,11 @@ describe('AI media input and contract', () => {
       const name = platform[0]!.toUpperCase() + platform.slice(1)
       expect(operation.operationId).toBe('parse' + name + 'Media')
       expect(operation.tags).toEqual([name + ' Media'])
+      expect(operation).not.toHaveProperty('summary')
       expect(operation.security).toEqual([{ serviceToken: [] }])
-      const data = operation.responses['200'].content['application/json'].schema.properties.data
-      expect(JSON.stringify(data)).toContain('ai-generated')
-      const platformSchema = data.properties.platform
-      expect(platformSchema.enum ?? [platformSchema.const]).toEqual([platform])
+      expect(operation.responses['200'].content['application/json'].schema).toEqual({
+        $ref: '#/components/schemas/AiMediaResponse'
+      })
       tags.add(operation.tags[0])
       operationIds.add(operation.operationId)
     }
@@ -134,6 +143,16 @@ describe('AI media input and contract', () => {
     expect(operationIds.size).toBe(6)
     expect(document.paths['/v1/ai-media']).toBeUndefined()
     expect(document.paths['/v1/ai-media/{platform}']).toBeUndefined()
+    const schemas = document.components.schemas
+    expect(schemas.AiMediaResponse.properties.data).toEqual({ $ref: '#/components/schemas/AiMediaData' })
+    expect(Object.keys(schemas.AiMediaData.properties).sort()).toEqual(['author', 'avatar', 'cover', 'media', 'title', 'uid'])
+    expect(schemas.AiMediaData.required.sort()).toEqual(['author', 'avatar', 'cover', 'media', 'title', 'uid'])
+    expect(schemas.AiMediaData.additionalProperties).toBe(false)
+    expect(schemas.AiMediaData.properties.media.minItems).toBe(1)
+    expect(Object.keys(schemas.AiMediaItem.properties).sort()).toEqual(['type', 'url', 'variant', 'watermark'])
+    expect(schemas.AiMediaItem.properties.variant.enum).toEqual(['original', 'download', 'preview'])
+    expect(schemas.AiMediaItem.properties.watermark.enum).toEqual(['none', 'ai-generated', 'present', 'unknown'])
+    expect(schemas.AiMediaAuthor).toBeUndefined()
   })
 
   it.each(AI_MEDIA_PLATFORMS)('requires the Service Token for %s', async platform => {
@@ -147,7 +166,11 @@ describe('AI media input and contract', () => {
     const response = await app().request(route(platform, url), { headers })
     expect(response.status).toBe(400)
     expect(response.headers.get('x-openapi-error-code')).toBe('AI_MEDIA_PLATFORM_MISMATCH')
-    expect(await response.json()).toMatchObject({ code: 'AI_MEDIA_PLATFORM_MISMATCH', data: null })
+    expect(await response.json()).toMatchObject({
+      code: 'AI_MEDIA_PLATFORM_MISMATCH',
+      message: '请提供' + AI_MEDIA_LABELS[platform] + '分享链接',
+      data: null
+    })
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -160,6 +183,100 @@ describe('AI media input and contract', () => {
 })
 
 describe('AI media platform parsing', () => {
+  it.each([
+    ['42', '42'],
+    ['0', '0'],
+    ['9007199254740993', '9007199254740993'],
+    ['9223372036854775807', '9223372036854775807'],
+    ['"000123"', '000123'],
+    ['"user_a1"', 'user_a1'],
+    ['null', null],
+    ['42.5', null]
+  ] as const)('normalizes upstream UID %s without losing precision or changing its meaning', async (uid, expected) => {
+    fetchMock.mockResolvedValueOnce(new Response(
+      '{"status":200,"result":1,"data":{"userProfile":{"userId":' + uid + '},'
+      + '"resource":{"resource":"https://video.example.com/work.mp4"}}}'
+    ))
+    const response = await app().request(route('kling', 'https://klingai-share.kuaishou.com/h5-app/share?work_id=123'), { headers })
+    expect(response.status).toBe(200)
+    expect((await readMediaData(response)).uid).toBe(expected)
+  })
+
+  it('preserves integer UIDs inside nested encoded page data', async () => {
+    const payload = '{"data":{"creator":{"authorId":9223372036854775807},'
+      + '"images":[{"downloadUrl":"https://image.example.com/result.png"}]}}'
+    fetchMock.mockResolvedValueOnce(qianwenPage(encodeURIComponent(encodeURIComponent(payload))))
+    const response = await app().request(route('qianwen', QIANWEN), { headers })
+    expect(response.status).toBe(200)
+    expect((await readMediaData(response)).uid).toBe('9223372036854775807')
+  })
+
+  it('uses null for unavailable metadata and discards invalid optional URLs', async () => {
+    fetchMock.mockResolvedValueOnce(json({ ret: 0, data: {
+      common_attr: { description: '  ', cover_url: 'javascript:alert(1)' },
+      author: { name: ' ', avatar_url: 'ftp://image.example.com/avatar.png' },
+      video: { origin_video: { video_url: GOLDEN.url } }
+    } }))
+    const response = await app().request(route('jimeng', JIMENG), { headers })
+    expect(response.status).toBe(200)
+    expect(await readMediaData(response)).toEqual({
+      author: null,
+      uid: null,
+      avatar: null,
+      title: null,
+      cover: null,
+      media: [{ type: 'video', url: GOLDEN.url, variant: 'original', watermark: 'none' }]
+    })
+  })
+
+  it('uses the first result image as the cover when upstream has no cover', async () => {
+    fetchMock.mockResolvedValueOnce(qianwenPage({ images: [
+      { downloadUrl: 'https://image.example.com/first.png?signature=a%2Fb' },
+      { downloadUrl: 'https://image.example.com/second.png' }
+    ] }))
+    const response = await app().request(route('qianwen', QIANWEN), { headers })
+    const data = await readMediaData(response)
+    expect(data.title).toBeNull()
+    expect(data.author).toBeNull()
+    expect(data.cover).toBe('https://image.example.com/first.png?signature=a%2Fb')
+    expect(data.media).toHaveLength(2)
+  })
+
+  it('accepts case-insensitive HTTP schemes without rewriting signed URLs', async () => {
+    const url = 'HTTPS://video.example.com/original.mp4?signature=a%2Fb&part=1'
+    fetchMock.mockResolvedValueOnce(json({ ret: 0, data: {
+      video: { origin_video: { video_url: url } }
+    } }))
+    const response = await app().request(route('jimeng', JIMENG), { headers })
+    expect(response.status).toBe(200)
+    expect((await readMediaData(response)).media[0]?.url).toBe(url)
+  })
+
+  it('rejects redundant fields, empty media lists and null successful data in the contract', () => {
+    const data = {
+      author: null, uid: null, avatar: null, title: null, cover: null,
+      media: [{ type: 'video', url: GOLDEN.url, variant: 'original', watermark: 'none' }]
+    }
+    expect(AiMediaDataSchema.safeParse(data).success).toBe(true)
+    for (const invalid of [
+      { ...data, platform: 'doubao' },
+      { ...data, warnings: [] },
+      { ...data, cover: '' },
+      { ...data, coverUrl: null },
+      { ...data, author: { id: '123', name: '作者', avatarUrl: null } },
+      { ...data, uid: 123 },
+      { ...data, title: '' },
+      { ...data, media: [] },
+      { ...data, media: [{ ...data.media[0], source: 'original' }] },
+      { ...data, media: [{ ...data.media[0], url: 'ftp://video.example.com/media.mp4' }] }
+    ]) {
+      expect(AiMediaDataSchema.safeParse(invalid).success).toBe(false)
+    }
+    expect(AiMediaResponseSchema.safeParse({
+      code: 'OK', message: '解析成功', data: null, timestamp: 0
+    }).success).toBe(false)
+  })
+
   it('selects the original Jimeng rendition and highest quality cover', async () => {
     fetchMock.mockResolvedValueOnce(json({ ret: '0', data: {
       common_attr: { description: '作品', cover_url_map: { '720': 'https://image.example.com/720.jpg', '4096': 'https://image.example.com/4096.jpg' } },
@@ -172,11 +289,11 @@ describe('AI media platform parsing', () => {
     const response = await app().request(route('jimeng', JIMENG), { headers })
     expect(response.status).toBe(200)
     expect(response.headers.get('cache-control')).toBe('no-store')
-    expect(await response.json()).toMatchObject({
-      code: 'OK', message: 'AI 媒体解析成功', timestamp: expect.any(Number),
-      data: { platform: 'jimeng', title: '作品', cover: 'https://image.example.com/4096.jpg', media: [{
-        url: 'https://video.example.com/raw.mp4?signature=a%2Fb', type: 'video', source: 'original', watermark: 'none'
-      }] }
+    expect(await readMediaData(response)).toEqual({
+      author: '作者', uid: '123', avatar: null, title: '作品',
+      cover: 'https://image.example.com/4096.jpg', media: [{
+        url: 'https://video.example.com/raw.mp4?signature=a%2Fb', type: 'video', variant: 'original', watermark: 'none'
+      }]
     })
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1].body))).toEqual({ published_item_id: '123' })
   })
@@ -210,8 +327,7 @@ describe('AI media platform parsing', () => {
       } } } }))
     const response = await app().request(route('xiaoyunque', 'https://xiaoyunque.jianying.com/s/test/?t=123'), { headers })
     expect(response.status).toBe(200)
-    const { data }: { data: AiMediaData } = await response.json()
-    expect(data.platform).toBe('xiaoyunque')
+    const data = await readMediaData(response)
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1].body))).toEqual({
       query_params: { artifact_id: '123', generate_id: 'abc' }
     })
@@ -225,13 +341,13 @@ describe('AI media platform parsing', () => {
     } }))
     const response = await app().request(route('kling', 'https://klingai-share.kuaishou.com/h5-app/share?work_id=654321'), { headers })
     expect(response.status).toBe(200)
-    const { data }: { data: AiMediaData } = await response.json()
-    expect(data.platform).toBe('kling')
+    const data = await readMediaData(response)
     const called = new URL(fetchMock.mock.calls[0]![0])
     expect(called.searchParams.get('creativeId')).toBe('654321')
     expect(called.searchParams.get('creativeType')).toBe('WORK')
     expect(data.media[0]?.url).toBe('https://video.example.com/work.mp4')
-    expect(data.author.id).toBe('42')
+    expect(data).toMatchObject({ author: '作者', uid: '42', avatar: null })
+    expect(data.title).toBeNull()
     expect(data.cover).toBe('https://image.example.com/first.jpg')
   })
 
@@ -251,10 +367,9 @@ describe('AI media platform parsing', () => {
     fetchMock.mockResolvedValueOnce(new Response(html))
     const response = await app().request(route('hailuo', HAILUO), { headers })
     expect(response.status).toBe(200)
-    const { data }: { data: AiMediaData } = await response.json()
-    expect(data.platform).toBe('hailuo')
-    expect(data.media).toEqual([{ type: 'video', url: 'https://cdn.hailuoai.com/ai.mp4', source: 'download', watermark: 'ai-generated' }])
-    expect(data.warnings).toHaveLength(1)
+    const data = await readMediaData(response)
+    expect(data.media).toEqual([{ type: 'video', url: 'https://cdn.hailuoai.com/ai.mp4', variant: 'download', watermark: 'ai-generated' }])
+    expect(data).toMatchObject({ author: null, uid: '123', avatar: null })
     expect(data.title).toContain('中文')
   })
 
@@ -264,7 +379,7 @@ describe('AI media platform parsing', () => {
         thumbnailUrl: ['https://cdn.hailuoai.com/cover.jpg'] }]
     }) + '</script>'))
     const data = await parseAiMedia(HAILUO)
-    expect(data.media[0]).toMatchObject({ source: 'preview', watermark: 'unknown' })
+    expect(data.media[0]).toMatchObject({ variant: 'preview', watermark: 'unknown' })
     expect(data.cover).toBe('https://cdn.hailuoai.com/cover.jpg')
   })
 
@@ -277,8 +392,8 @@ describe('AI media platform parsing', () => {
     fetchMock.mockResolvedValueOnce(qianwenPage(encodeURIComponent(encodeURIComponent(JSON.stringify(initial)))))
     const response = await app().request(route('qianwen', QIANWEN), { headers })
     expect(response.status).toBe(200)
-    const { data }: { data: AiMediaData } = await response.json()
-    expect(data.platform).toBe('qianwen')
+    const data = await readMediaData(response)
+    expect(data).toMatchObject({ author: '作者', uid: '123', avatar: 'https://image.example.com/avatar.png' })
     expect(data.media.map(item => item.url)).toEqual([
       'https://image.example.com/raw.png?token=a%2Fb', 'https://video.example.com/download.mp4'
     ])
@@ -311,18 +426,16 @@ describe('Doubao originals and fallbacks', () => {
     }], profile: { image: { origin_url: 'https://image.example.com/avatar.png' } } } }))
     const response = await app().request(route('doubao', THREAD), { headers })
     expect(response.status).toBe(200)
-    const { data }: { data: AiMediaData } = await response.json()
-    expect(data.platform).toBe('doubao')
+    const data = await readMediaData(response)
     expect(data.media).toHaveLength(1)
-    expect(data.media[0]).toMatchObject({ source: 'original', watermark: 'none', url: 'https://image.example.com/raw.png?signature=a%2Fb' })
+    expect(data.media[0]).toMatchObject({ variant: 'original', watermark: 'none', url: 'https://image.example.com/raw.png?signature=a%2Fb' })
   })
 
   it('preserves CDN signatures and identifies public video previews as marked', async () => {
     fetchMock.mockResolvedValueOnce(publicDoubao())
     const data = await parseAiMedia(DOUBAO)
-    expect(data.media[0]).toMatchObject({ source: 'preview', watermark: 'present' })
+    expect(data.media[0]).toMatchObject({ variant: 'preview', watermark: 'present' })
     expect(data.media[0]?.url).toContain('lr=video_gen_watermark_dyn&token=a%2Fb')
-    expect(data.warnings[0]).toContain('aiMedia.doubaoCookie')
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(new Headers(fetchMock.mock.calls[0]?.[1].headers).has('cookie')).toBe(false)
   })
@@ -336,8 +449,7 @@ describe('Doubao originals and fallbacks', () => {
         original: { main_url: GOLDEN.encrypted, vwidth: 1920, vheight: 1080 }
       } } } }))
     const data = await parseAiMedia(DOUBAO, { cookie: 'sessionid_ss=private-value' })
-    expect(data.media[0]).toEqual({ type: 'video', url: GOLDEN.url, source: 'original', watermark: 'none' })
-    expect(data.warnings).toEqual([])
+    expect(data.media[0]).toEqual({ type: 'video', url: GOLDEN.url, variant: 'original', watermark: 'none' })
     expect(fetchMock).toHaveBeenCalledTimes(3)
     expect(new Headers(fetchMock.mock.calls[0]?.[1].headers).get('cookie')).toBe('sessionid_ss=private-value')
     const fallback = fetchMock.mock.calls[2]!
@@ -354,16 +466,15 @@ describe('Doubao originals and fallbacks', () => {
       .mockResolvedValueOnce(json({ code: 1 }))
       .mockResolvedValueOnce(json({ code: 0, data: { original_media_info: { main_url: GOLDEN.url } } }))
     const data = await parseAiMedia(DOUBAO, { cookie: 'sessionid_ss=test' })
-    expect(data.media[0]).toMatchObject({ source: 'original', watermark: 'none', url: GOLDEN.url })
+    expect(data.media[0]).toMatchObject({ variant: 'original', watermark: 'none', url: GOLDEN.url })
   })
 
-  it('reports an expired cookie instead of claiming that the preview is clean', async () => {
+  it('retains the preview version and watermark state when the cookie expires', async () => {
     fetchMock.mockResolvedValueOnce(publicDoubao())
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
       .mockResolvedValueOnce(json({ code: 1 }))
     const data = await parseAiMedia(DOUBAO, { cookie: 'sessionid_ss=expired' })
-    expect(data.media[0]?.watermark).toBe('present')
-    expect(data.warnings[0]).toContain('Cookie')
+    expect(data.media[0]).toMatchObject({ variant: 'preview', watermark: 'present' })
   })
 
   it('retains every distinct video in a conversation and decodes base64 model URLs', async () => {
@@ -388,6 +499,17 @@ describe('configuration and upstream failures', () => {
     }
     expect(JSON.stringify(manager.getRedactedState())).not.toContain('secret-')
     expect(() => configuration({ 'aiMedia.enabledPlatforms': ['unknown'] })).toThrow()
+    const fields = serviceConfigurationDefinition.groups.find(group => group.key === 'aiMedia')!.fields
+    expect(fields.find(field => field.type === 'multi-select')!.options).toEqual([
+      { value: 'doubao', label: '豆包' },
+      { value: 'jimeng', label: '即梦' },
+      { value: 'xiaoyunque', label: '小云雀' },
+      { value: 'kling', label: '可灵' },
+      { value: 'hailuo', label: '海螺' },
+      { value: 'qianwen', label: '通义千问' }
+    ])
+    expect(fields.filter(field => field.type === 'secret').map(field => field.label))
+      .toEqual(['豆包 Cookie', '即梦 Cookie', '小云雀 Cookie', '可灵 Cookie', '海螺 Cookie', '通义千问 Cookie'])
   })
 
   it('applies switches and cookies immediately to the same app', async () => {

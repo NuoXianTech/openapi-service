@@ -1,4 +1,4 @@
-import { mediaItem, mediaUrl, record, result, text } from '../common.js'
+import { identifier, mediaItem, mediaUrl, record, result, text } from '../common.js'
 import { MOBILE_USER_AGENT, requestAiJson } from '../http.js'
 import { AiMediaError, parseFailed, type AiMediaRequestOptions } from '../types.js'
 
@@ -18,10 +18,8 @@ export async function parseKling(source: URL, options: AiMediaRequestOptions) {
   const user = record(detail.userProfile)
   const video = mediaItem('video', record(detail.resource).resource, 'download')
   return result({
-    title: text(detail.introduction, '可灵AI 作品'),
-    author: {
-      name: text(user.userName), id: text(user.userId), avatar: mediaUrl(record(user.avatar).resource)
-    },
+    title: text(detail.introduction),
+    author: text(user.userName), uid: identifier(user.userId), avatar: mediaUrl(record(user.avatar).resource),
     cover: mediaUrl(record(detail.cover).resource, record(detail.firstFrame).resource),
     media: video ? [video] : []
   })

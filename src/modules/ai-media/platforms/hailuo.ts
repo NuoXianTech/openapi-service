@@ -1,5 +1,5 @@
 import { load } from 'cheerio'
-import { jsonAt, mediaItem, mediaUrl, record, records, result, text } from '../common.js'
+import { identifier, jsonAt, mediaItem, mediaUrl, record, records, result, text } from '../common.js'
 import { requestAiText } from '../http.js'
 import { AiMediaError, parseFailed, type AiMediaRequestOptions } from '../types.js'
 
@@ -28,7 +28,7 @@ function flightAsset(html: string): Record<string, unknown> | undefined {
 
 export async function parseHailuo(source: URL, options: AiMediaRequestOptions) {
   if (!/^\/share\/ai-video\/[^/]+\/?$/.test(source.pathname)) {
-    throw new AiMediaError(400, 'INVALID_PARAMETER', '请提供海螺 AI 视频分享链接')
+    throw new AiMediaError(400, 'INVALID_PARAMETER', '请提供海螺视频分享链接')
   }
   const html = await requestAiText('hailuo', source, options)
   const asset = flightAsset(html)
@@ -39,10 +39,9 @@ export async function parseHailuo(source: URL, options: AiMediaRequestOptions) {
       ?? mediaItem('video', asset.videoURL, 'preview', 'present')
       ?? mediaItem('video', urls.downloadURLWithHailuoWatermark, 'preview', 'present')
     if (video) return result({
-      title: text(asset.title, asset.desc, '海螺AI 作品'),
-      author: { name: '', id: text(asset.userIDStr, asset.userID), avatar: '' },
-      cover: mediaUrl(asset.coverURL, asset.promptImgURL), media: [video],
-      warnings: video.watermark === 'ai-generated' ? ['已优先选择去品牌水印版本，仍保留 AI 生成角标。'] : []
+      title: text(asset.title, asset.desc),
+      uid: identifier(asset.userIDStr, asset.userID),
+      cover: mediaUrl(asset.coverURL, asset.promptImgURL), media: [video]
     })
   }
   const $ = load(html)
@@ -53,8 +52,8 @@ export async function parseHailuo(source: URL, options: AiMediaRequestOptions) {
       const video = mediaItem('video', node.contentUrl, 'preview')
       if (!video) continue
       return result({
-        title: text(node.description, node.name, '海螺AI 作品'),
-        author: { name: text(record(node.author).name), id: '', avatar: '' },
+        title: text(node.description, node.name),
+        author: text(record(node.author).name),
         cover: mediaUrl(node.thumbnailUrl, ...(Array.isArray(node.thumbnailUrl) ? node.thumbnailUrl : [])),
         media: [video]
       })

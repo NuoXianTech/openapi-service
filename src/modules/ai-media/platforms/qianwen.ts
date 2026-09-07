@@ -1,4 +1,4 @@
-import { array, assignedJson, decodeJson, isRecord, mediaItem, mediaUrl, record, result, text } from '../common.js'
+import { array, assignedJson, decodeJson, identifier, isRecord, mediaItem, mediaUrl, record, result, text } from '../common.js'
 import { MOBILE_USER_AGENT, requestAiText } from '../http.js'
 import { parseFailed, type AiMediaItem, type AiMediaRequestOptions } from '../types.js'
 
@@ -64,7 +64,7 @@ export async function parseQianwen(source: URL, options: AiMediaRequestOptions) 
   return result({
     title: text(detail.title, detail.shareSubtitle, detail.shareTitle, session.title,
       typeof query === 'string' ? query : text(record(query).content, record(query).text)),
-    author: { name: text(creator.nick), id: text(creator.authorId, creator.uid), avatar: mediaUrl(creator.avatar) },
+    author: text(creator.nick), uid: identifier(creator.authorId, creator.uid), avatar: mediaUrl(creator.avatar),
     media
   })
 }

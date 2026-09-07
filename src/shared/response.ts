@@ -12,7 +12,7 @@ export interface ApiResponse<T> {
 export function createSuccessResponse<T>(
   data: T,
   message = '请求成功'
-): ApiResponse<T> {
+): ApiResponse<T> & { data: T } {
   return {
     code: 'OK',
     message,

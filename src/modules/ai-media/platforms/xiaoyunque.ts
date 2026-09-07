@@ -1,4 +1,4 @@
-import { array, mediaItem, mediaUrl, record, result, text } from '../common.js'
+import { array, identifier, mediaItem, mediaUrl, record, result, text } from '../common.js'
 import { requestAiJson, resolveAiUrl } from '../http.js'
 import { AiMediaError, parseFailed, type AiMediaItem, type AiMediaRequestOptions } from '../types.js'
 
@@ -28,8 +28,8 @@ export async function parseXiaoyunque(source: URL, options: AiMediaRequestOption
     if (entry) media.push(entry)
   }
   return result({
-    title: text(item.desc, item.title, '小云雀AI 作品'),
-    author: { name: text(user.nick_name), id: text(user.user_id, user.sec_uid), avatar: mediaUrl(user.avatar_url) },
+    title: text(item.desc, item.title),
+    author: text(user.nick_name), uid: identifier(user.user_id, user.sec_uid), avatar: mediaUrl(user.avatar_url),
     cover: mediaUrl(item.cover_url), media
   })
 }

@@ -2,8 +2,8 @@ import type { ConfigurationGroup } from '../../configuration/types.js'
 import { AI_MEDIA_LABELS, AI_MEDIA_PLATFORMS } from './types.js'
 
 export const aiMediaConfigurationGroup = {
-  key: 'aiMedia', label: 'AI 媒体解析',
-  description: '提取 AI 创作平台的原图、原视频和下载地址。',
+  key: 'aiMedia', label: 'AI 去水印',
+  description: '解析豆包、即梦等 AI 创作平台的分享链接，优先获取原始图片和视频；水印状态以解析结果为准。',
   fields: [
     {
       key: 'aiMedia.enabledPlatforms', type: 'multi-select', label: '可用 AI 创作平台',

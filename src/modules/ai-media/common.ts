@@ -1,5 +1,7 @@
 import { load } from 'cheerio'
-import { parseFailed, type AiMediaItem, type AiMediaResult } from './types.js'
+import { parseJsonPreservingIntegers } from './json.js'
+import { AiMediaDataSchema } from './schema.js'
+import { parseFailed, type AiMediaData, type AiMediaItem } from './types.js'
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -22,6 +24,14 @@ export function text(...values: unknown[]): string {
   return ''
 }
 
+export function identifier(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim()
+    if (typeof value === 'number' && Number.isSafeInteger(value)) return String(value)
+  }
+  return ''
+}
+
 export function mediaUrl(...values: unknown[]): string {
   for (const value of values) {
     if (typeof value !== 'string') continue
@@ -40,25 +50,26 @@ export function mediaUrl(...values: unknown[]): string {
 export function mediaItem(
   type: AiMediaItem['type'],
   value: unknown,
-  source: AiMediaItem['source'],
+  variant: AiMediaItem['variant'],
   watermark: AiMediaItem['watermark'] = 'unknown'
 ): AiMediaItem | undefined {
   const url = mediaUrl(value)
   if (!url) return undefined
   const marked = /video_gen_watermark|watermark_dyn|[/?&=._-]watermark(?:[/?&=._-]|$)/i.test(url)
-  return { type, url, source, watermark: marked ? 'present' : watermark }
+  return { type, url, variant, watermark: marked ? 'present' : watermark }
 }
 
-export function result(value: Partial<AiMediaResult>): AiMediaResult {
+export function result(value: Partial<AiMediaData>): AiMediaData {
   const media = [...new Map((value.media ?? []).map(item => [`${item.type}:${item.url}`, item])).values()]
   if (!media.length) throw parseFailed()
-  return {
-    title: value.title ?? '',
-    author: value.author ?? { name: '', id: '', avatar: '' },
-    cover: mediaUrl(value.cover) || media.find(item => item.type === 'image')?.url || '',
-    media,
-    warnings: [...new Set(value.warnings ?? [])]
-  }
+  return AiMediaDataSchema.parse({
+    author: text(value.author) || null,
+    uid: identifier(value.uid) || null,
+    avatar: mediaUrl(value.avatar) || null,
+    title: text(value.title) || null,
+    cover: mediaUrl(value.cover) || media.find(item => item.type === 'image')?.url || null,
+    media
+  })
 }
 
 export function decodeHtml(value: string): string {
@@ -72,7 +83,7 @@ export function decodeJson(value: unknown): unknown {
     // Parse valid JSON before decoding HTML entities inside its string values.
     // Flight data can contain literal &quot; in unrelated component props.
     try {
-      value = JSON.parse(candidate) as unknown
+      value = parseJsonPreservingIntegers(candidate)
       continue
     } catch { /* Try a transport encoding. */ }
     if (/^%(?:7b|5b|22|25)/i.test(candidate)) {

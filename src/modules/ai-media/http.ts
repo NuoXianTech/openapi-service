@@ -1,6 +1,7 @@
 import { safeFetch, isHostnameWithin } from '../../shared/safe-fetch.js'
 import { readLimitedText } from '../../shared/limited-response.js'
 import { AI_MEDIA_HOSTS } from './input.js'
+import { parseJsonPreservingIntegers } from './json.js'
 import { AiMediaError, AI_MEDIA_LABELS, parseFailed } from './types.js'
 import type { AiMediaPlatform, AiMediaRequestOptions } from './types.js'
 
@@ -88,7 +89,7 @@ export async function requestAiJson(
   options: AiRequestOptions = {}
 ): Promise<unknown> {
   const text = await requestAiText(platform, input, options, 4 * 1024 * 1024)
-  try { return JSON.parse(text) as unknown } catch {
+  try { return parseJsonPreservingIntegers(text) } catch {
     throw new AiMediaError(502, 'UPSTREAM_INVALID_RESPONSE', '平台返回了无效 JSON')
   }
 }

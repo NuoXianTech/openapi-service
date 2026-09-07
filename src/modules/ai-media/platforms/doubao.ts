@@ -1,7 +1,7 @@
 // Protocol reference: ucmao/media-parser (MIT); see resources/licenses/media-parser.txt.
 import { createDecipheriv, createHash } from 'node:crypto'
 import { load } from 'cheerio'
-import { array, decodeHtml, decodeJson, mediaItem, mediaUrl, record, records, result, text } from '../common.js'
+import { array, decodeHtml, decodeJson, identifier, mediaItem, mediaUrl, record, records, result, text } from '../common.js'
 import { requestAiJson, requestAiText } from '../http.js'
 import { AiMediaError, parseFailed } from '../types.js'
 import type { AiMediaItem, AiMediaRequestOptions } from '../types.js'
@@ -132,13 +132,6 @@ function embeddedVideo(video: Record<string, unknown>): AiMediaItem | undefined 
   return candidates.find(item => item.watermark !== 'present') ?? candidates[0]
 }
 
-function videoWarnings(media: AiMediaItem[], options: AiMediaRequestOptions): string[] {
-  if (!media.some(item => item.type === 'video' && item.watermark !== 'none')) return []
-  return [options.cookie?.trim()
-    ? '部分豆包视频未取得已确认的无水印原片，请检查 Cookie 有效性和作品访问权限。'
-    : '豆包原视频通常需要配置 aiMedia.doubaoCookie；当前返回公开版本，水印状态以各媒体字段为准。']
-}
-
 async function parseThread(source: URL, options: AiMediaRequestOptions) {
   const html = await requestAiText('doubao', source, options)
   const $ = load(html)
@@ -185,14 +178,14 @@ async function parseThread(source: URL, options: AiMediaRequestOptions) {
       record(record(video.cover).image_thumb).url, record(video.poster).url)
   }
   if (!media.length && videos.size && !options.cookie?.trim()) {
-    throw new AiMediaError(422, 'AI_MEDIA_AUTH_REQUIRED', '该豆包视频需要配置有效的 aiMedia.doubaoCookie')
+    throw new AiMediaError(422, 'AI_MEDIA_AUTH_REQUIRED', '该豆包视频需要有效登录态或分享访问权限')
   }
   const title = ['title', 'prompt', 'description'].map(key => text(...nodes.map(node => node[key]))).find(Boolean) ?? ''
   const author = nodes.find(node => text(node.nickname, node.user_name)) ?? {}
   return result({
-    title: title || '豆包对话分享',
-    author: { name: text(author.nickname, author.user_name), id: text(author.user_id, author.uid, author.id), avatar: mediaUrl(author.avatar, author.avatar_url) },
-    cover, media, warnings: videoWarnings(media, options)
+    title,
+    author: text(author.nickname, author.user_name), uid: identifier(author.user_id, author.uid, author.id), avatar: mediaUrl(author.avatar, author.avatar_url),
+    cover, media
   })
 }
 
@@ -213,9 +206,9 @@ async function parseVideoSharing(source: URL, options: AiMediaRequestOptions) {
   const item = original.item ?? mediaItem('video', decodedUrl(play.main) || decodedUrl(play.backup), 'preview', 'present')
   const media = item ? [item] : []
   return result({
-    title: text(detail.prompt, '豆包 AI 视频'),
-    author: { name: text(user.nickname, user.user_name), id: text(user.user_id), avatar: mediaUrl(user.avatar, user.avatar_url) },
-    cover: mediaUrl(original.cover, play.poster_url), media, warnings: videoWarnings(media, options)
+    title: text(detail.prompt),
+    author: text(user.nickname, user.user_name), uid: identifier(user.user_id), avatar: mediaUrl(user.avatar, user.avatar_url),
+    cover: mediaUrl(original.cover, play.poster_url), media
   })
 }
 

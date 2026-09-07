@@ -1,4 +1,4 @@
-import { mediaItem, mediaUrl, record, result, text } from '../common.js'
+import { identifier, mediaItem, mediaUrl, record, result, text } from '../common.js'
 import { requestAiJson, resolveAiUrl } from '../http.js'
 import { AiMediaError, parseFailed, type AiMediaRequestOptions } from '../types.js'
 
@@ -35,8 +35,8 @@ export async function parseJimeng(source: URL, options: AiMediaRequestOptions) {
     : mediaItem('video', alternatives[0]?.video_url, 'preview')
   const covers = record(common.cover_url_map)
   return result({
-    title: text(common.description, '即梦AI 作品'),
-    author: { name: text(author.name), id: text(author.uid, author.sec_uid), avatar: mediaUrl(author.avatar_url) },
+    title: text(common.description),
+    author: text(author.name), uid: identifier(author.uid, author.sec_uid), avatar: mediaUrl(author.avatar_url),
     cover: mediaUrl(covers.original, ...['4096', '2400', '1080', '720', '480', '360'].map(key => covers[key]),
       ...Object.values(covers), common.cover_url, video.cover_url),
     media: selected ? [selected] : []
